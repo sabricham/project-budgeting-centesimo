@@ -1,0 +1,18 @@
+# Segreti e certificati: MAI nel repository
+secrets/*.txt
+!secrets/*.txt.example
+server/certs/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# .NET
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/

@@ -1,0 +1,72 @@
+<UserControl x:Class="MoneyApp.Desktop.Views.ReportsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:MoneyApp.Desktop.Controls">
+
+    <Grid Margin="24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <ComboBox Width="130" Margin="0,0,8,0" ItemsSource="{Binding Metrics}"
+                          SelectedItem="{Binding SelectedMetric}" />
+                <ComboBox Width="110" ItemsSource="{Binding Ranges}" SelectedItem="{Binding SelectedRange}" />
+            </StackPanel>
+            <TextBlock Text="Report" Style="{StaticResource H1}" />
+        </DockPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource Card}" Background="#33E5556E"
+                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource Card}">
+            <StackPanel>
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource Muted}"
+                               Text="{Binding NetWorth.Total, StringFormat=Patrimonio netto: {0:N2} €}" />
+                    <TextBlock Text="{Binding SelectedMetric}" Style="{StaticResource H2}" />
+                </DockPanel>
+                <controls:LineChart Height="260" ItemsSource="{Binding Points}"
+                                    Stroke="{StaticResource AccentBrush}" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource Card}">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top">
+                    <TextBlock DockPanel.Dock="Right"
+                               Text="{Binding BreakdownTotal, StringFormat=Totale: {0:N2} €}"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="Ripartizione per categoria" Style="{StaticResource H2}" />
+                </DockPanel>
+
+                <DataGrid ItemsSource="{Binding Breakdown}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Categoria" Width="*" Binding="{Binding CategoryName}" />
+                        <DataGridTextColumn Header="Totale" Width="140"
+                                            Binding="{Binding Total, StringFormat={}{0:N2} €}" />
+                        <DataGridTemplateColumn Header="Quota" Width="220">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <ProgressBar Height="8" Minimum="0" Maximum="1"
+                                                     Value="{Binding Share, Mode=OneWay}"
+                                                     Foreground="{StaticResource AccentBrush}"
+                                                     Background="{StaticResource SurfaceAltBrush}"
+                                                     BorderThickness="0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>
