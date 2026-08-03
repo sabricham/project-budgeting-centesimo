@@ -6,9 +6,15 @@
 
 ## Stato attuale
 
-*Aggiornato al 2026-07-30.*
+*Aggiornato al 2026-08-04.*
 
-Tutte le fasi 1–12 del piano (§3.4) sono implementate. Il repository contiene:
+Tutte le fasi 1–12 del piano (§3.4) sono implementate **e verificate end-to-end**. Il
+backend non gira più sul PC di sviluppo: è deployato su una macchina Ubuntu dedicata,
+`192.168.1.104` (utente `office`, cartella `/home/office/Budgeting`). I sorgenti restano
+qui, il server ne ha una copia sovrascritta ad ogni deploy — procedura in
+[DEPLOY.md](DEPLOY.md).
+
+Il repository contiene:
 
 - **`server/`** — API FastAPI completa: autenticazione JWT con refresh token revocabili,
   conti, categorie con sotto-categorie, budget mensili, transazioni, trasferimenti,
@@ -20,17 +26,19 @@ Tutte le fasi 1–12 del piano (§3.4) sono implementate. Il repository contiene
   pagine: Home a widget, Conti (con dettaglio movimenti, trasferimenti, residuo debiti),
   Categorie e budget, Abbonamenti, Portafoglio, Obiettivi, Report. Token nel Windows
   Credential Manager, certificato del server pinnato.
-- **`docs/`** — architettura di riferimento, elenco API, questo file.
+- **`docs/`** — architettura di riferimento, elenco API, procedura di deploy, questo file.
 
-**Verificato finora:** l'app FastAPI si importa e genera l'OpenAPI (69 rotte, 60 schemi);
-i `Decimal` vengono serializzati come stringhe come da contratto; i 15 test di logica pura
-delle ricorrenze passano; il client compila senza warning e si avvia mostrando la finestra
-di login (le risorse XAML si risolvono a runtime).
+**Verificato il 2026-08-04 sul server reale:** `docker compose up -d --build` costruisce e
+avvia entrambi i servizi (`healthy`); la migrazione `0001` è stata applicata per la prima
+volta contro un Postgres vero; lo scheduler parte con i suoi 3 job; `/health` risponde
+`{"status":"ok","db":"ok","scheduler":"running"}` **dalla LAN**; login → `/auth/me` →
+`/categories` funziona da un client esterno con il certificato pinnato; il seed crea utente
+e 21 categorie; **tutti e 45 i test passano**, inclusi i 30 di integrazione mai eseguiti
+prima. Il client WPF compila in Release senza warning.
 
-**NON ancora verificato:** l'esecuzione end-to-end con Docker. Al momento della scrittura
-Docker Desktop non era installato sulla macchina, quindi `docker compose up`, le
-migrazioni Alembic contro un Postgres reale, i 30 test di integrazione e il giro completo
-client→API→DB restano da eseguire. È la prima cosa da fare nella prossima sessione.
+**NON ancora verificato:** il giro completo dentro l'applicazione desktop (login dalla GUI,
+inserimento transazione, rientro automatico da refresh token dopo riavvio). L'API è provata,
+la UI che la consuma no.
 
 ## Decisioni architetturali
 
@@ -63,6 +71,13 @@ client→API→DB restano da eseguire. È la prima cosa da fare nella prossima s
 | 2026-07-30 | Grafici disegnati con un controllo WPF custom su `Canvas` | due serie semplici non giustificano una dipendenza di charting con i suoi vincoli di licenza e peso | LiveCharts / ScottPlot / OxyPlot |
 | 2026-07-30 | Dashboard a griglia fissa configurabile, senza drag&drop | come raccomandato in §2.11: il riposizionamento libero in WPF è UI non banale, rimandato alla seconda iterazione | griglia drag&drop da subito |
 | 2026-07-30 | Test di integrazione su un database separato `money_test` creato al volo | non toccano mai i dati reali; la pulizia sta nella fixture delle sessioni così i test di logica pura girano anche senza Postgres | transazioni con rollback sul DB di produzione |
+| 2026-08-04 | Backend deployato su macchina Ubuntu separata (`192.168.1.104`), client solo su Windows | è lo scenario "server separato" già previsto in §0; il PC di sviluppo non deve restare acceso perché l'app funzioni | continuare a far girare i container sul PC Windows |
+| 2026-08-04 | I sorgenti restano sul PC Windows, sul server c'è una copia sovrascritta ad ogni deploy | una sola fonte di verità; modificare il server "al volo" produrrebbe divergenze invisibili | sviluppare direttamente sul server via SSH |
+| 2026-08-04 | Segreti (`db_password`, `jwt_secret`) **generati sul server**, non copiati da Windows | un segreto che viaggia è un segreto in più da custodire, e i due ambienti non hanno motivo di condividerli | copiare `secrets/` insieme ai sorgenti |
+| 2026-08-04 | SAN del certificato parametrizzato via `CERT_CN`/`CERT_EXTRA_SAN` nel `.env` | il certificato era valido solo per `localhost`: fuori dal PC di sviluppo ogni strumento che verifica il nome (browser, curl, futuro client Android) lo rifiuterebbe | lasciare il SAN fisso e affidarsi solo al pinning del client WPF |
+| 2026-08-04 | Docker installato dal repo ufficiale Docker, non dal pacchetto `docker.io` di Ubuntu | `docker.io` è più vecchio e non porta il plugin `compose` v2 richiesto dal `docker-compose.yml` | `apt install docker.io` + docker-compose v1 |
+| 2026-08-04 | `pythonpath = .` in `pytest.ini` | senza, `docker compose exec api pytest` (il comando documentato) non trova il package `app`: pytest mette in `sys.path` la cartella dei test, non la root | documentare `python -m pytest` al posto di `pytest` |
+| 2026-08-04 | Loop scope dei test forzato a `session` con `pytestmark` in `test_api.py` | l'engine async è di scope sessione e le connessioni asyncpg restano legate al loop che le ha aperte; in pytest-asyncio 0.25 lo scope del loop dei **test** si imposta solo dal marker (l'opzione ini copre le sole fixture) | rendere l'engine di scope funzione (ricreerebbe lo schema ad ogni test) |
 
 ## Schema dati
 
@@ -92,15 +107,17 @@ Tipi: denaro `NUMERIC(18,2)`, quantità `NUMERIC(24,8)`, prezzi `NUMERIC(18,6)`,
 
 ## Prossimi passi
 
-- [ ] **Installare Docker Desktop ed eseguire la verifica end-to-end**: `docker compose up
-      -d --build`, `/health`, seed, giro completo su Swagger, `docker compose exec api
-      pytest` (30 test di integrazione mai eseguiti finora).
-- [ ] Avviare il client contro l'API reale e confermare il flusso della §3.4 punto 5
-      (login → lista conti con saldo → aggiungi transazione) e il rientro automatico dal
-      refresh token dopo un riavvio.
+- [ ] Confermare dalla GUI il flusso della §3.4 punto 5 (login → lista conti con saldo →
+      aggiungi transazione) e il rientro automatico dal refresh token dopo un riavvio
+      dell'app.
 - [ ] Registrare una API key Twelve Data (o Alpha Vantage) in
-      `secrets/market_data_api_key.txt` e verificare il job di aggiornamento prezzi; fino
-      ad allora i prezzi si inseriscono a mano.
+      `secrets/market_data_api_key.txt` **sul server** e rimettere
+      `MARKET_DATA_PROVIDER=twelvedata` nel suo `.env`; fino ad allora i prezzi si
+      inseriscono a mano da `PUT /api/v1/portfolio/prices/{ticker}`.
+- [ ] Backup del database: oggi è un `pg_dump` da lanciare a mano (DEPLOY.md §6), non c'è
+      niente di schedulato.
+- [ ] Accesso da fuori casa via Tailscale: l'IP `100.89.5.18` è già nel SAN del
+      certificato, ma il percorso non è mai stato provato.
 - [ ] Fase 13: app Android come nuovo client dello stesso backend (nessuna modifica al
       server prevista, il contratto §1 è machine-independent).
 
@@ -109,6 +126,25 @@ budget (`BudgetHistory`), più obiettivi sullo stesso conto di risparmio, piano 
 ammortamento per i mutui, drag&drop dei widget, caching locale sul client.
 
 ## Changelog
+
+### 2026-08-04
+
+- **Primo deploy reale.** Backend su `192.168.1.104` (Ubuntu 24.04, utente `office`,
+  `/home/office/Budgeting`): installato Docker Engine 29.7.1 + Compose v5.4.0 dal repo
+  ufficiale, copiati i sorgenti, generati segreti e `.env` sul posto, stack avviato.
+- **Prima verifica end-to-end**, mai fatta prima: migrazione `0001` applicata su Postgres
+  reale, `/health` OK dalla LAN, seed di utente e 21 categorie, login + `/auth/me` +
+  `/categories` da un client esterno con certificato pinnato.
+- `entrypoint.sh`: il SAN del certificato self-signed ora è parametrico
+  (`CERT_CN`, `CERT_EXTRA_SAN`), altrimenti valeva solo per `localhost`. Aggiunte le
+  variabili al `docker-compose.yml` e a `.env.example`.
+- **Corretti due difetti che impedivano ai test di girare**, emersi solo eseguendoli
+  davvero: `pytest.ini` senza `pythonpath = .` (il package `app` non era importabile) e
+  scope dell'event loop disallineato fra fixture e test (tutti i 28 test che toccavano il
+  DB morivano con "got Future attached to a different loop"). Rimossa la fixture
+  `event_loop` fatta a mano, deprecata da pytest-asyncio 0.23. **45 test su 45 passano.**
+- Nuovo [DEPLOY.md](DEPLOY.md): topologia, cosa vive solo sul server, gestione del
+  certificato, deploy da zero, aggiornamento, comandi operativi, backup, rete.
 
 ### 2026-07-30
 

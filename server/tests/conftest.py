@@ -12,10 +12,8 @@ ovunque con `pytest tests/test_recurrence.py`.
 
 from __future__ import annotations
 
-import asyncio
 from typing import AsyncIterator
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -45,13 +43,6 @@ async def _ensure_test_database() -> None:
                 await conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
     finally:
         await admin.dispose()
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest_asyncio.fixture(scope="session")

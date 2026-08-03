@@ -12,6 +12,13 @@ from decimal import Decimal
 
 import pytest
 
+# I test devono girare sullo stesso event loop delle fixture (`engine` e' di scope
+# sessione, e le connessioni asyncpg restano legate al loop che le ha aperte).
+# Senza questo ogni accesso al DB fallisce con "got Future attached to a different
+# loop": in pytest-asyncio 0.25 lo scope del loop dei TEST si imposta solo dal
+# marker, non da pytest.ini (`asyncio_default_fixture_loop_scope` copre le fixture).
+pytestmark = pytest.mark.asyncio(loop_scope="session")
+
 API = "/api/v1"
 TODAY = dt.date.today()
 FIRST_OF_MONTH = TODAY.replace(day=1)

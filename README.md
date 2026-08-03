@@ -15,12 +15,21 @@ Nessun client parla mai direttamente col database — è una decisione chiusa
 (vedi [docs/ARCHITETTURA_MONEY_APP.md](docs/ARCHITETTURA_MONEY_APP.md) §0). Una futura app
 Android sarà semplicemente un altro client dello stesso backend.
 
+> **Dove gira il backend, oggi.** Dal 2026-08-04 il server non è più su questa macchina:
+> sta su `192.168.1.104` (Ubuntu, utente `office`, cartella `~/Budgeting`), e l'API è
+> `https://192.168.1.104:8443`. I sorgenti restano qui e vengono copiati là ad ogni
+> deploy. Procedura, comandi operativi e gestione del certificato in
+> **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+>
+> L'«Avvio rapido» qui sotto resta valido per far girare lo stack **in locale** durante
+> lo sviluppo; in quel caso lascia `CERT_CN=localhost` e `CERT_EXTRA_SAN` vuoto.
+
 ---
 
 ## Indice
 
 - [Prerequisiti](#prerequisiti)
-- [Avvio rapido](#avvio-rapido)
+- [Avvio rapido](#avvio-rapido) (stack locale di sviluppo — per il server vero vedi [docs/DEPLOY.md](docs/DEPLOY.md))
 - [Struttura del repository](#struttura-del-repository)
 - [Concetti chiave del modello](#concetti-chiave-del-modello)
 - [Convenzioni del contratto API](#convenzioni-del-contratto-api)
@@ -287,3 +296,5 @@ messaggio esplicito: meglio un errore chiaro che un saldo sbagliato.
   **Va letto a inizio sessione e aggiornato a fine sessione.**
 - [docs/API.md](docs/API.md) — elenco degli endpoint; lo schema autoritativo resta
   `/docs` generato da FastAPI.
+- [docs/DEPLOY.md](docs/DEPLOY.md) — com'è fatto il deploy sul server `192.168.1.104`:
+  topologia, segreti, certificato, aggiornamento, comandi operativi, backup.
