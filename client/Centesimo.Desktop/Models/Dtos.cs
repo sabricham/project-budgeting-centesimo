@@ -270,3 +270,24 @@ public record PriceEntry(string Ticker, decimal Price, string Currency, DateTime
 public record ApiErrorBody(ApiErrorDetail Error);
 
 public record ApiErrorDetail(string Code, string Message);
+
+// --- Impostazioni e storico portafoglio ------------------------------------
+
+public record MarketDataSettings(
+    string Provider,
+    string? ApiKeyMasked,
+    bool ApiKeyConfigured,
+    string SearchUrl,
+    string SignupUrl,
+    int? DailyBudget,
+    int UsedToday);
+
+public record ResetResult(Dictionary<string, int> Deleted, int Total);
+
+public record PortfolioHistoryPoint(DateOnly Date, decimal Value);
+
+public record PortfolioHistory(
+    string Currency,
+    int IntervalDays,
+    List<PortfolioHistoryPoint> Points,
+    List<string> Missing);

@@ -49,8 +49,14 @@ class Settings(BaseSettings):
     run_scheduler: bool = True
     # quanti giorni di occorrenze ricorrenti generare in anticipo
     recurring_horizon_days: int = 90
-    # ogni quanti minuti aggiornare PriceCache
-    price_refresh_minutes: int = 30
+    # Ora del giorno in cui aggiornare prezzi e storico. Una volta al giorno, non ogni
+    # 30 minuti come prima: la serie giornaliera cambia una volta al giorno, e il piano
+    # gratuito di Alpha Vantage concede 25 richieste in tutto.
+    price_refresh_hour: int = 22
+
+    # Tetto prudenziale di richieste giornaliere verso il provider (la quota vera è 25).
+    # Il margine serve agli aggiornamenti su richiesta quando si registra un'operazione.
+    market_data_daily_budget: int = 20
 
     # --- Dati di mercato -------------------------------------------------
     market_data_provider: str = "twelvedata"  # twelvedata | alphavantage | none

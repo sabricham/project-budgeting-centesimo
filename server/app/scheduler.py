@@ -15,7 +15,6 @@ import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
 from app.services.scheduler_jobs import (
@@ -47,10 +46,12 @@ def start_scheduler() -> AsyncIOScheduler | None:
     )
     scheduler.add_job(
         job_refresh_market_data,
-        IntervalTrigger(minutes=settings.price_refresh_minutes),
+        # Una volta al giorno, a mercati chiusi. Prima girava ogni 30 minuti: 48 chiamate
+        # al giorno per un solo ticker, contro le 25 concesse dal piano gratuito.
+        CronTrigger(hour=settings.price_refresh_hour, minute=15),
         id="refresh_market_data",
         replace_existing=True,
-        misfire_grace_time=600,
+        misfire_grace_time=3600,
         coalesce=True,
     )
     scheduler.add_job(

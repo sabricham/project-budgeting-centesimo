@@ -468,6 +468,63 @@ class PriceCache(Base):
     fetched_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     #: provider che ha fornito il dato, oppure "manual"
     source: Mapped[str] = mapped_column(String(24), nullable=False, default="manual")
+    #: "stock" | "crypto" | "unknown". Azioni e cripto hanno endpoint diversi: memorizzare
+    #: l'esito del primo tentativo evita di sprecare una richiesta al giorno per indovinare.
+    asset_kind: Mapped[str] = mapped_column(String(8), nullable=False, default="unknown")
+
+
+class AppSetting(Base):
+    """Impostazioni modificabili a caldo, in coppie chiave/valore.
+
+    **Deroga esplicita a §3.1**, approvata: la chiave API dei dati di mercato era un
+    Docker secret letto all'avvio, e cambiarla richiedeva di riavviare il container.
+    Qui può essere impostata dall'applicazione. Il file di secret resta il valore di
+    partenza: se in tabella non c'è nulla, si continua a leggere da lì.
+    """
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(48), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: dt.datetime.now(dt.timezone.utc)
+    )
+
+
+class PriceHistory(Base):
+    """Serie storica giornaliera dei prezzi, una riga per ticker e giorno.
+
+    È l'archivio locale che rende il grafico indipendente dal provider: la UI legge solo
+    da qui, quindi cambiare intervallo o riaprire la pagina non costa nessuna chiamata.
+
+    Serve anche ad aggirare il limite del piano gratuito: Alpha Vantage restituisce una
+    finestra di ~100 giorni per richiesta, ma conservando ogni giorno la nostra copia lo
+    storico si accumula e non viene mai perso.
+    """
+
+    __tablename__ = "price_history"
+
+    ticker: Mapped[str] = mapped_column(String(24), primary_key=True)
+    #: giorno di borsa a cui si riferisce la chiusura
+    date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    close: Mapped[Decimal] = mapped_column(PRICE, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    source: Mapped[str] = mapped_column(String(24), nullable=False, default="manual")
+
+
+class ApiBudget(Base):
+    """Consumo giornaliero di chiamate verso il provider dei dati di mercato.
+
+    Il piano gratuito di Alpha Vantage concede 25 richieste al giorno: senza un contatore
+    l'applicazione può bruciare la quota e restare cieca fino al giorno dopo. Qui si tiene
+    il conto e si smette **prima** del tetto, degradando sui dati già in cache.
+    """
+
+    __tablename__ = "api_budget"
+
+    day: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    provider: Mapped[str] = mapped_column(String(24), primary_key=True)
+    used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class FxRateCache(Base):

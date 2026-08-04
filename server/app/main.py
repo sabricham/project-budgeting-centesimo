@@ -29,6 +29,7 @@ from app.routers import (
     portfolio,
     recurring,
     reports,
+    settings as settings_router,
     transactions,
     transfers,
 )
@@ -78,6 +79,7 @@ for router in (
     reports.router,
     dashboard.router,
     portfolio.router,
+    settings_router.router,
 ):
     app.include_router(router, prefix=settings.api_prefix)
 

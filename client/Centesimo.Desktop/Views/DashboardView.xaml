@@ -22,18 +22,18 @@
                 <Border Style="{StaticResource Card}" Margin="0,0,12,12">
                     <StackPanel>
                         <TextBlock Text="PATRIMONIO NETTO" Style="{StaticResource Muted}" />
-                        <TextBlock Text="{Binding NetWorth.Total, StringFormat={}{0:N2} €}"
+                        <TextBlock Text="{Binding NetWorth.Total, Converter={StaticResource Money}}"
                                    FontSize="24" FontWeight="SemiBold" Margin="0,6,0,0"
                                    Foreground="{Binding NetWorth.Total, Converter={StaticResource AmountToBrush}}" />
                         <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,0"
-                                   Text="{Binding NetWorth.Liabilities, StringFormat=debiti: {0:N2} €}" />
+                                   Text="{Binding NetWorth.Liabilities, StringFormat=debiti: {0:N2} EUR}" />
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource Card}" Margin="0,0,12,12">
                     <StackPanel>
                         <TextBlock Text="TOTALE CONTI" Style="{StaticResource Muted}" />
-                        <TextBlock Text="{Binding TotalAssets, StringFormat={}{0:N2} €}"
+                        <TextBlock Text="{Binding TotalAssets, Converter={StaticResource Money}}"
                                    FontSize="24" FontWeight="SemiBold" Margin="0,6,0,0" />
                         <TextBlock Text="esclusi debiti/prestiti" Style="{StaticResource Muted}" Margin="0,4,0,0" />
                     </StackPanel>
@@ -42,7 +42,7 @@
                 <Border Style="{StaticResource Card}" Margin="0,0,12,12">
                     <StackPanel>
                         <TextBlock Text="USCITE DEL MESE" Style="{StaticResource Muted}" />
-                        <TextBlock Text="{Binding MonthSpending, StringFormat={}{0:N2} €}"
+                        <TextBlock Text="{Binding MonthSpending, Converter={StaticResource Money}}"
                                    FontSize="24" FontWeight="SemiBold" Margin="0,6,0,0"
                                    Foreground="{StaticResource NegativeBrush}" />
                         <TextBlock Text="trasferimenti esclusi" Style="{StaticResource Muted}" Margin="0,4,0,0" />
@@ -52,7 +52,7 @@
                 <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="ENTRATE DEL MESE" Style="{StaticResource Muted}" />
-                        <TextBlock Text="{Binding MonthIncome, StringFormat={}{0:N2} €}"
+                        <TextBlock Text="{Binding MonthIncome, Converter={StaticResource Money}}"
                                    FontSize="24" FontWeight="SemiBold" Margin="0,6,0,0"
                                    Foreground="{StaticResource PositiveBrush}" />
                     </StackPanel>
@@ -98,7 +98,7 @@
                                     <StackPanel Margin="0,0,0,10">
                                         <DockPanel>
                                             <TextBlock DockPanel.Dock="Right"
-                                                       Text="{Binding Remaining, StringFormat=restano {0:N2} €}"
+                                                       Text="{Binding Remaining, StringFormat=restano {0:N2} EUR}"
                                                        Foreground="{Binding OverBudget, Converter={StaticResource OverBudgetToBrush}}" />
                                             <TextBlock Text="{Binding CategoryName}" />
                                         </DockPanel>
@@ -108,9 +108,9 @@
                                                      Background="{StaticResource SurfaceAltBrush}"
                                                      BorderThickness="0" />
                                         <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0">
-                                            <Run Text="{Binding SpentThisMonth, StringFormat={}{0:N2} €}" />
+                                            <Run Text="{Binding SpentThisMonth, Converter={StaticResource Money}}" />
                                             <Run Text=" su " />
-                                            <Run Text="{Binding AmountLimit, StringFormat={}{0:N2} €}" />
+                                            <Run Text="{Binding AmountLimit, Converter={StaticResource Money}}" />
                                         </TextBlock>
                                     </StackPanel>
                                 </DataTemplate>
@@ -133,7 +133,7 @@
                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}" />
                                         <TextBlock DockPanel.Dock="Right" Width="90" TextAlignment="Right"
-                                                   Text="{Binding Amount, StringFormat={}{0:N2} €}" Margin="0,0,10,0" />
+                                                   Text="{Binding Amount, Converter={StaticResource Money}}" Margin="0,0,10,0" />
                                         <TextBlock Width="80" Style="{StaticResource Muted}"
                                                    Text="{Binding Date, StringFormat={}{0:dd/MM}}" />
                                         <TextBlock Text="{Binding Description}" TextTrimming="CharacterEllipsis" />
@@ -154,7 +154,7 @@
                                 <DockPanel Margin="0,0,0,7">
                                     <TextBlock DockPanel.Dock="Right" Width="120" TextAlignment="Right"
                                                FontWeight="SemiBold"
-                                               Text="{Binding Balance, StringFormat={}{0:N2} €}" />
+                                               Text="{Binding Balance, Converter={StaticResource Money}}" />
                                     <TextBlock DockPanel.Dock="Right" Width="150" Style="{StaticResource Muted}"
                                                Text="{Binding TypeLabel}" />
                                     <TextBlock Text="{Binding Name}" />

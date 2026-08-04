@@ -352,3 +352,117 @@ async def portfolio_summary(session: AsyncSession, user_id: int, account_id: int
         "holdings": items,
         "missing_prices": missing,
     }
+
+
+async def value_history(
+    session: AsyncSession,
+    user_id: int,
+    *,
+    account_id: int | None = None,
+    days: int = 180,
+    interval_days: int = 1,
+) -> dict:
+    """Valore delle posizioni nel tempo, ricostruito da operazioni + `PriceHistory`.
+
+    Le quantità possedute a una certa data si ottengono cumulando le operazioni fino a
+    quel giorno; il valore moltiplicando per l'ultima chiusura nota **a quella data** —
+    mai per il prezzo di oggi, che falserebbe tutto il passato.
+
+    I ticker per cui non c'è ancora storico non vengono valorizzati a zero: sarebbe una
+    bugia grafica. Finiscono in `missing`, così la UI può dirlo.
+    """
+    today = dt.date.today()
+    start = today - dt.timedelta(days=days)
+
+    operations = select(StockTransaction).where(
+        StockTransaction.user_id == user_id,
+        StockTransaction.type != StockTransactionType.dividend,
+    )
+    if account_id is not None:
+        operations = operations.where(StockTransaction.account_id == account_id)
+    rows = list((await session.execute(operations.order_by(StockTransaction.date))).scalars())
+
+    base = settings_base_currency()
+    if not rows:
+        return {"currency": base, "interval_days": interval_days, "points": [], "missing": []}
+
+    tickers = sorted({r.ticker for r in rows})
+    history = await _history_map(session, tickers, start)
+
+    missing = [t for t in tickers if not history.get(t)]
+    points: list[dict] = []
+    step = max(1, interval_days)
+
+    day = start
+    while day <= today:
+        total = ZERO
+        for ticker in tickers:
+            series = history.get(ticker)
+            if not series:
+                continue
+            # `==` e non `is`: la colonna è testuale (enum come CHECK, non tipo nativo),
+            # quindi `r.type` è una stringa e il confronto per identità è sempre falso —
+            # ogni acquisto verrebbe contato come vendita.
+            quantity = sum(
+                (r.quantity or ZERO) * (1 if r.type == StockTransactionType.buy else -1)
+                for r in rows
+                if r.ticker == ticker and r.date <= day
+            )
+            if quantity <= 0:
+                continue
+            close, currency = _close_at(series, day)
+            if close is None:
+                continue
+            value = quantity * close
+            if currency != base:
+                rate = await get_fx_rate(session, currency, base)
+                if rate is None:
+                    continue
+                value *= rate
+            total += value
+        points.append({"date": day, "value": q2(total)})
+        day += dt.timedelta(days=step)
+
+    return {
+        "currency": base,
+        "interval_days": step,
+        "points": points,
+        "missing": missing,
+    }
+
+
+def settings_base_currency() -> str:
+    from app.config import settings
+
+    return settings.base_currency
+
+
+async def _history_map(
+    session: AsyncSession, tickers: list[str], start: dt.date
+) -> dict[str, list[tuple[dt.date, Decimal, str]]]:
+    from app.models import PriceHistory
+
+    rows = (
+        await session.execute(
+            select(PriceHistory)
+            .where(PriceHistory.ticker.in_(tickers), PriceHistory.date >= start)
+            .order_by(PriceHistory.ticker, PriceHistory.date)
+        )
+    ).scalars()
+
+    out: dict[str, list[tuple[dt.date, Decimal, str]]] = {}
+    for row in rows:
+        out.setdefault(row.ticker, []).append((row.date, row.close, row.currency))
+    return out
+
+
+def _close_at(
+    series: list[tuple[dt.date, Decimal, str]], day: dt.date
+) -> tuple[Decimal | None, str]:
+    """Ultima chiusura non successiva a `day`: nei weekend e nei festivi non c'è una riga."""
+    found: tuple[Decimal | None, str] = (None, "EUR")
+    for date, close, currency in series:
+        if date > day:
+            break
+        found = (close, currency)
+    return found

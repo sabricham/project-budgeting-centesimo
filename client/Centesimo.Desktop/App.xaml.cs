@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Windows;
+using System.Windows.Markup;
 using Centesimo.Desktop.Services;
 using Centesimo.Desktop.Views;
 
@@ -15,6 +17,8 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        UseItalianFormatting();
+
         // Durante il login non esiste ancora una finestra principale: senza questo,
         // la chiusura del dialog di login farebbe terminare l'applicazione.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -43,6 +47,26 @@ public partial class App : Application
         {
             Shutdown();
         }
+    }
+
+    /// <summary>
+    /// Numeri e date in formato italiano ovunque: virgola decimale, punto per le migliaia,
+    /// date gg/mm/aaaa.
+    ///
+    /// Le due righe non bastano da sole: WPF ignora la cultura del thread nei binding e usa
+    /// <see cref="FrameworkElement.LanguageProperty"/>, che di default vale sempre "en-US".
+    /// Senza il terzo blocco gli importi resterebbero "1,234.56" nonostante tutto il resto.
+    /// Il formato sul filo con il server non cambia: resta ISO/InvariantCulture (§1.3).
+    /// </summary>
+    private static void UseItalianFormatting()
+    {
+        var culture = CultureInfo.GetCultureInfo("it-IT");
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+
+        FrameworkElement.LanguageProperty.OverrideMetadata(
+            typeof(FrameworkElement),
+            new FrameworkPropertyMetadata(XmlLanguage.GetLanguage(culture.IetfLanguageTag)));
     }
 
     /// <summary>

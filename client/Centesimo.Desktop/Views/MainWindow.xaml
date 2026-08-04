@@ -17,10 +17,16 @@
         <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}"
                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="16,20,16,16">
-                    <TextBlock Text="Centesimo" FontSize="17" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding UserLabel}" Style="{StaticResource Muted}" Margin="0,2,0,0" />
-                </StackPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="16,20,12,16">
+                    <!-- Ingranaggio: glifo "Setting" di Segoe MDL2 Assets -->
+                    <Button DockPanel.Dock="Right" Content="&#xE713;" VerticalAlignment="Top"
+                            Style="{StaticResource IconButton}" ToolTip="Impostazioni"
+                            Click="Settings_Click" />
+                    <StackPanel>
+                        <TextBlock Text="Centesimo" FontSize="17" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding UserLabel}" Style="{StaticResource Muted}" Margin="0,2,0,0" />
+                    </StackPanel>
+                </DockPanel>
 
                 <StackPanel DockPanel.Dock="Bottom" Margin="12,0,12,16">
                     <Button Content="Aggiorna" Style="{StaticResource GhostButton}"

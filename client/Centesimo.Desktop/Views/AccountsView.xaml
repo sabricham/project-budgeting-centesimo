@@ -1,6 +1,7 @@
 <UserControl x:Class="Centesimo.Desktop.Views.AccountsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Centesimo.Desktop.Controls">
 
     <Grid Margin="24,20">
         <Grid.ColumnDefinitions>
@@ -32,7 +33,7 @@
                                 <DataTemplate>
                                     <DockPanel MinWidth="280" Margin="0,3">
                                         <TextBlock DockPanel.Dock="Right" FontWeight="SemiBold"
-                                                   Text="{Binding Balance, StringFormat={}{0:N2} €}" />
+                                                   Text="{Binding Balance, Converter={StaticResource Money}}" />
                                         <StackPanel>
                                             <TextBlock Text="{Binding Name}" />
                                             <TextBlock Text="{Binding TypeLabel}" Style="{StaticResource Muted}" />
@@ -47,11 +48,13 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Nuovo conto" Style="{StaticResource H2}" />
-                        <TextBox Text="{Binding AccountName, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="Nome del conto" />
-                        <ComboBox ItemsSource="{Binding AccountTypes}" SelectedItem="{Binding AccountType}" />
-                        <TextBox Text="{Binding AccountInitialBalance, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="Saldo iniziale" />
+
+                        <TextBox Text="{Binding AccountName, UpdateSourceTrigger=PropertyChanged}" ctrl:Hint.Text="Nome" />
+
+                        <ComboBox ItemsSource="{Binding AccountTypes}" SelectedItem="{Binding AccountType}" ctrl:Hint.Text="Tipo" />
+
+                        <TextBox Text="{Binding AccountInitialBalance, UpdateSourceTrigger=PropertyChanged}" ctrl:Hint.Text="Saldo iniziale (EUR)" />
+
                         <Button Content="Crea conto" Command="{Binding AddAccountCommand}" />
                     </StackPanel>
                 </Border>
@@ -63,12 +66,15 @@
                         <TextBlock Text="Sposta denaro senza falsare i report di spesa."
                                    Style="{StaticResource Muted}" Margin="0,0,0,8" TextWrapping="Wrap" />
                         <ComboBox ItemsSource="{Binding Accounts}" SelectedItem="{Binding TransferFrom}"
-                                  DisplayMemberPath="Name" />
+                                  DisplayMemberPath="Name" ctrl:Hint.Text="Dal conto" />
+
                         <ComboBox ItemsSource="{Binding Accounts}" SelectedItem="{Binding TransferTo}"
-                                  DisplayMemberPath="Name" />
-                        <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="Importo" />
-                        <DatePicker SelectedDate="{Binding TransferDate}" />
+                                  DisplayMemberPath="Name" ctrl:Hint.Text="Al conto" />
+
+                        <TextBox Text="{Binding TransferAmount, UpdateSourceTrigger=PropertyChanged}" ctrl:Hint.Text="Importo (EUR)" />
+
+                        <DatePicker SelectedDate="{Binding TransferDate}" ctrl:Hint.Text="Data" />
+
                         <Button Content="Trasferisci" Command="{Binding AddTransferCommand}" />
                     </StackPanel>
                 </Border>
@@ -105,25 +111,22 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,0">
-                            <TextBlock Text="Importo" Style="{StaticResource Muted}" />
-                            <TextBox Text="{Binding NewAmount, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox Text="{Binding NewAmount, UpdateSourceTrigger=PropertyChanged}" ctrl:Hint.Text="Importo (EUR)" />
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,8,0">
-                            <TextBlock Text="Categoria" Style="{StaticResource Muted}" />
                             <ComboBox ItemsSource="{Binding AvailableCategories}" SelectedItem="{Binding NewCategory}"
-                                      DisplayMemberPath="DisplayName" />
+                                      DisplayMemberPath="DisplayName" ctrl:Hint.Text="Categoria" />
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,8,0">
-                            <TextBlock Text="Data" Style="{StaticResource Muted}" />
-                            <DatePicker SelectedDate="{Binding NewDate}" />
+                            <DatePicker SelectedDate="{Binding NewDate}" ctrl:Hint.Text="Data" />
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="3" VerticalAlignment="Bottom">
-                            <CheckBox Content="Uscita" IsChecked="{Binding NewIsExpense}" />
+                            <CheckBox Content="Uscita" IsChecked="{Binding NewIsExpense}" Margin="0,0,0,14" />
                         </StackPanel>
 
                         <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,8,0"
                                  Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="Descrizione (facoltativa)" />
+                                 ctrl:Hint.Text="Descrizione (facoltativa)" />
                         <Button Grid.Row="1" Grid.Column="3" Content="Aggiungi"
                                 Command="{Binding AddTransactionCommand}" />
                     </Grid>
@@ -134,11 +137,15 @@
                         <TextBlock Text="Aggiorna capitale residuo" Style="{StaticResource H2}" />
                         <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
                                    Text="La rata pagata va registrata come spesa dal conto corrente; qui si registra solo il residuo dell'estratto conto." />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBox Width="140" Margin="0,0,8,0"
-                                     Text="{Binding ResidualAmount, UpdateSourceTrigger=PropertyChanged}" />
-                            <DatePicker SelectedDate="{Binding ResidualDate}" Margin="0,0,8,0" />
-                            <Button Content="Registra residuo" Command="{Binding UpdateResidualCommand}" />
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <StackPanel Width="150" Margin="0,0,8,0">
+                                <TextBox Text="{Binding ResidualAmount, UpdateSourceTrigger=PropertyChanged}" ctrl:Hint.Text="Capitale residuo (EUR)" />
+                            </StackPanel>
+                            <StackPanel Width="150" Margin="0,0,8,0">
+                                <DatePicker SelectedDate="{Binding ResidualDate}" ctrl:Hint.Text="Alla data" />
+                            </StackPanel>
+                            <Button Content="Registra residuo" Command="{Binding UpdateResidualCommand}"
+                                    Margin="0,0,0,10" />
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
@@ -158,7 +165,7 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock TextAlignment="Right" Margin="0,0,8,0"
-                                                   Text="{Binding SignedAmount, StringFormat={}{0:N2} €}"
+                                                   Text="{Binding SignedAmount, Converter={StaticResource Money}}"
                                                    Foreground="{Binding SignedAmount, Converter={StaticResource AmountToBrush}}" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>

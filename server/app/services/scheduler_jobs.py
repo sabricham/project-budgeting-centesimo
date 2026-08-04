@@ -14,20 +14,57 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Account, FxRateCache, Holding, PriceCache, User
-from app.services import recurrence, reports
+from app.models import (
+    Account,
+    ApiBudget,
+    FxRateCache,
+    Holding,
+    PriceCache,
+    PriceHistory,
+    User,
+)
+from app.services import app_settings, recurrence, reports
 from app.services.market_data import get_provider
 
 log = logging.getLogger(__name__)
 
 
+async def _budget_left(session: AsyncSession, provider_name: str) -> int:
+    """Richieste ancora spendibili oggi verso il provider."""
+    today = dt.date.today()
+    row = await session.get(ApiBudget, (today, provider_name))
+    used = row.used if row else 0
+    return max(0, settings.market_data_daily_budget - used)
+
+
+async def _spend(session: AsyncSession, provider_name: str, amount: int = 1) -> None:
+    today = dt.date.today()
+    row = await session.get(ApiBudget, (today, provider_name))
+    if row is None:
+        row = ApiBudget(day=today, provider=provider_name, used=0)
+        session.add(row)
+    row.used += amount
+    await session.flush()
+
+
 async def refresh_market_data(session: AsyncSession, *, user_id: int | None = None) -> dict:
-    """Aggiorna `PriceCache` e `FxRateCache` dal provider esterno.
+    """Aggiorna prezzi, storico giornaliero e cambi dal provider esterno.
+
+    Strategia dettata dal piano gratuito di Alpha Vantage (25 richieste al giorno):
+
+      * **una richiesta per ticker posseduto**, non di più. La serie giornaliera contiene
+        già la quotazione di oggi, quindi non serve una seconda chiamata per il prezzo
+        corrente;
+      * i ticker già aggiornati oggi vengono saltati, così registrare dieci operazioni
+        sullo stesso titolo non costa dieci richieste;
+      * un contatore giornaliero (`ApiBudget`) impedisce di superare la quota: esaurita,
+        si serve quello che c'è in archivio invece di restare ciechi fino a domani.
 
     Con provider `none` (nessuna API key) non fa nulla: i prezzi restano quelli inseriti
     a mano, e il portafoglio continua a funzionare.
     """
-    provider = get_provider()
+    provider_name, api_key, _ = await app_settings.market_data_config(session)
+    provider = get_provider(provider_name, api_key)
     if provider.name == "none":
         return {"prices_updated": 0, "fx_updated": 0, "skipped": "nessun provider configurato"}
 
@@ -38,19 +75,55 @@ async def refresh_market_data(session: AsyncSession, *, user_id: int | None = No
         holdings_q = holdings_q.where(Holding.user_id == user_id)
     rows = list(await session.execute(holdings_q))
 
-    tickers = sorted({r[0] for r in rows})
-    quotes = await provider.fetch_quotes(tickers) if tickers else {}
-
     now = dt.datetime.now(dt.timezone.utc)
-    for ticker, (price, currency) in quotes.items():
-        row = await session.get(PriceCache, ticker)
-        if row is None:
-            row = PriceCache(ticker=ticker)
-            session.add(row)
-        row.price = price
-        row.currency = currency
-        row.fetched_at = now
-        row.source = provider.name
+    today = now.date()
+    quotes: dict[str, tuple] = {}
+    skipped_fresh = 0
+
+    for ticker in sorted({r[0] for r in rows}):
+        cached = await session.get(PriceCache, ticker)
+        if cached is not None and cached.fetched_at.date() >= today and cached.source != "manual":
+            skipped_fresh += 1
+            quotes[ticker] = (cached.price, cached.currency)
+            continue
+
+        if await _budget_left(session, provider.name) <= 0:
+            log.warning("budget giornaliero esaurito: %s non aggiornato", ticker)
+            continue
+
+        await _spend(session, provider.name)
+        series = await provider.fetch_daily_series(
+            ticker, hint=cached.asset_kind if cached else "unknown"
+        )
+        if series is None:
+            continue
+
+        kind, currency, closes = series
+        for day, close in closes.items():
+            row = await session.get(PriceHistory, (ticker, day))
+            if row is None:
+                session.add(
+                    PriceHistory(
+                        ticker=ticker, date=day, close=close,
+                        currency=currency, source=provider.name,
+                    )
+                )
+            else:
+                row.close = close
+                row.currency = currency
+                row.source = provider.name
+
+        latest_day = max(closes)
+        quotes[ticker] = (closes[latest_day], currency)
+
+        if cached is None:
+            cached = PriceCache(ticker=ticker)
+            session.add(cached)
+        cached.price = closes[latest_day]
+        cached.currency = currency
+        cached.fetched_at = now
+        cached.source = provider.name
+        cached.asset_kind = kind
 
     # Cambi necessari: dalla valuta di quotazione a quella del conto, più la valuta base.
     pairs: set[tuple[str, str]] = set()
@@ -62,7 +135,22 @@ async def refresh_market_data(session: AsyncSession, *, user_id: int | None = No
             if source_currency and source_currency != settings.base_currency:
                 pairs.add((source_currency, settings.base_currency))
 
-    fx = await provider.fetch_fx_rates(sorted(pairs)) if pairs else {}
+    # Anche i cambi già aggiornati oggi si saltano, e comunque non si sfora il budget.
+    needed: list[tuple[str, str]] = []
+    for pair in sorted(pairs):
+        existing = await session.get(FxRateCache, pair)
+        if existing is not None and existing.fetched_at.date() >= today:
+            continue
+        needed.append(pair)
+
+    affordable = needed[: await _budget_left(session, provider.name)]
+    if len(affordable) < len(needed):
+        log.warning("budget esaurito: %d cambi non aggiornati", len(needed) - len(affordable))
+
+    fx = await provider.fetch_fx_rates(affordable) if affordable else {}
+    if affordable:
+        await _spend(session, provider.name, len(affordable))
+
     for (base, quote), rate in fx.items():
         row = await session.get(FxRateCache, (base, quote))
         if row is None:
@@ -73,7 +161,12 @@ async def refresh_market_data(session: AsyncSession, *, user_id: int | None = No
         row.source = provider.name
 
     await session.commit()
-    return {"prices_updated": len(quotes), "fx_updated": len(fx)}
+    return {
+        "prices_updated": len(quotes) - skipped_fresh,
+        "already_fresh": skipped_fresh,
+        "fx_updated": len(fx),
+        "budget_left": await _budget_left(session, provider.name),
+    }
 
 
 # --------------------------------------------------------------------------- #

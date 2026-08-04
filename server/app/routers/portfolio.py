@@ -51,6 +51,24 @@ async def create_stock_transaction(
     return stock_tx
 
 
+@router.get("/history", response_model=schemas.PortfolioHistoryOut)
+async def value_history(
+    user: CurrentUser,
+    session: DbSession,
+    account_id: int | None = Query(default=None, description="assente = tutti i conti investimento"),
+    days: int = Query(default=180, ge=7, le=1825),
+    interval_days: int = Query(default=1, ge=1, le=30, description="distanza fra due campioni"),
+) -> dict:
+    """Serie storica del valore delle posizioni, letta solo dall'archivio locale.
+
+    Non chiama mai il provider: i dati arrivano da `price_history`, popolata una volta al
+    giorno dal job. Cambiare intervallo o periodo costa quindi zero richieste API.
+    """
+    return await portfolio_service.value_history(
+        session, user.id, account_id=account_id, days=days, interval_days=interval_days
+    )
+
+
 @router.get("/prices", response_model=list[schemas.PriceOut])
 async def list_prices(user: CurrentUser, session: DbSession) -> list[PriceCache]:
     return list(await session.scalars(select(PriceCache).order_by(PriceCache.ticker)))

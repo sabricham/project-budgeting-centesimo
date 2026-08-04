@@ -1,5 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    xmlns:ctrl="clr-namespace:Centesimo.Desktop.Controls"
                     xmlns:conv="clr-namespace:Centesimo.Desktop.Converters">
 
     <conv:InverseBoolConverter x:Key="InverseBool" />
@@ -7,6 +9,9 @@
     <conv:StringToVisibilityConverter x:Key="StringToVisibility" />
     <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
     <conv:OverBudgetToBrushConverter x:Key="OverBudgetToBrush" />
+    <conv:MoneyConverter x:Key="Money" />
+    <conv:QuantityConverter x:Key="Quantity" />
+    <conv:PercentConverter x:Key="Percent" />
 
     <!-- Palette scura, sobria: i colori "semantici" (verde/rosso) sono riservati
          a entrate/uscite, così restano leggibili a colpo d'occhio. -->
@@ -25,6 +30,15 @@
     <SolidColorBrush x:Key="PositiveBrush" Color="#FF3FBF7F" />
     <SolidColorBrush x:Key="NegativeBrush" Color="#FFE5556E" />
     <SolidColorBrush x:Key="WarningBrush" Color="#FFE0A63C" />
+
+    <!-- Riempimento dei campi di input: leggermente più chiaro della superficie della
+         card, così il riquadro si distingue senza bisogno di un bordo marcato. -->
+    <SolidColorBrush x:Key="InputBrush" Color="#FF2E333D" />
+    <SolidColorBrush x:Key="InputHoverBrush" Color="#FF343A45" />
+    <SolidColorBrush x:Key="PopupBrush" Color="#FF20242C" />
+
+    <sys:Double x:Key="InputHeight">34</sys:Double>
+    <CornerRadius x:Key="InputRadius">6</CornerRadius>
 
     <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
@@ -52,6 +66,12 @@
         <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
         <Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- Etichetta di un campo. Sta sopra l'input e ne spiega il contenuto: è il modo
+         previsto per non lasciare riquadri anonimi nelle maschere. -->
+    <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+        <Setter Property="Margin" Value="2,0,0,4" />
     </Style>
 
     <Style x:Key="Card" TargetType="Border">
@@ -96,48 +116,576 @@
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
     </Style>
 
+    <!-- Pulsante icona: quadrato, senza riempimento finché non ci passi sopra. -->
+    <Style x:Key="IconButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================ CAMPI DI INPUT ============================
+         ComboBox, DatePicker e Calendar hanno bisogno di un ControlTemplate completo:
+         impostare solo Background/Foreground lascia in piedi la cromatura chiara del
+         tema di sistema, che su sfondo scuro diventa un riquadro bianco illeggibile.
+         ======================================================================= -->
+
     <Style TargetType="TextBox">
-        <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+        <Setter Property="Background" Value="{StaticResource InputBrush}" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="CaretBrush" Value="{StaticResource TextBrush}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="8,6" />
+        <!-- Il rientro orizzontale lo dà la griglia del template, non questa proprietà:
+             applicandolo in due punti il testo digitato finiva più a destra del
+             segnaposto, e i due non si allineavano. -->
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="{StaticResource InputHeight}" />
         <Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource InputRadius}">
+                        <!-- Segnaposto e testo digitato stanno nella stessa griglia con lo
+                             stesso rientro: è l'unico modo per essere certi che partano
+                             dallo stesso pixel. -->
+                        <Grid Margin="10,0">
+                            <TextBlock x:Name="HintText" IsHitTestVisible="False" Visibility="Collapsed"
+                                       Text="{Binding (ctrl:Hint.Text), RelativeSource={RelativeSource TemplatedParent}}"
+                                       Foreground="{StaticResource MutedBrush}" FontSize="13"
+                                       VerticalAlignment="Center" />
+                            <ScrollViewer x:Name="PART_ContentHost" Padding="0"
+                                          VerticalAlignment="Center" Focusable="False"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Hidden" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="HintText" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource InputHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="PasswordBox">
-        <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+        <Setter Property="Background" Value="{StaticResource InputBrush}" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="CaretBrush" Value="{StaticResource TextBrush}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="{StaticResource InputHeight}" />
         <Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource InputRadius}">
+                        <Grid Margin="10,0">
+                            <TextBlock x:Name="HintText" IsHitTestVisible="False" Visibility="Collapsed"
+                                       Text="{Binding (ctrl:Hint.Text), RelativeSource={RelativeSource TemplatedParent}}"
+                                       Foreground="{StaticResource MutedBrush}" FontSize="13"
+                                       VerticalAlignment="Center" />
+                            <ScrollViewer x:Name="PART_ContentHost" Padding="0"
+                                          VerticalAlignment="Center" Focusable="False"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Hidden" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <!-- Password non è una proprietà di dipendenza: il vuoto lo segnala
+                             Hint.IsEmpty, aggiornata dall'handler in Controls/Hint.cs. -->
+                        <Trigger Property="ctrl:Hint.IsEmpty" Value="True">
+                            <Setter TargetName="HintText" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource InputHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Voce del menù a tendina -->
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Margin="3,1"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="ComboBox">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Padding" Value="6,4" />
-        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="MinHeight" Value="{StaticResource InputHeight}" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+        <Setter Property="MaxDropDownHeight" Value="280" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay,
+                                                  RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="Bd" Background="{StaticResource InputBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="{StaticResource InputRadius}">
+                                        <Path x:Name="Arrow" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                              Margin="0,0,12,0" Data="M 0,0 L 5,5 L 10,0"
+                                              Stroke="{StaticResource MutedBrush}" StrokeThickness="1.6" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background"
+                                                    Value="{StaticResource InputHoverBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="Bd" Property="BorderBrush"
+                                                    Value="{StaticResource AccentBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+
+                        <!-- ContentTemplateSelector è indispensabile: DisplayMemberPath in WPF
+                             funziona attraverso un selettore di template interno, non
+                             tramite SelectionBoxItemTemplate. Senza questa riga la voce
+                             scelta veniva resa con ToString() del record, cioè
+                             "Account { Id = 1, Name = ... }". -->
+                        <ContentPresenter IsHitTestVisible="False" Margin="10,0,32,0"
+                                          VerticalAlignment="Center" HorizontalAlignment="Left"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                          ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
+
+                        <!-- Testo mostrato finché non è stata scelta nessuna voce: senza,
+                             una tendina vuota è indistinguibile da una tendina "già scelta". -->
+                        <TextBlock x:Name="HintText" IsHitTestVisible="False" Visibility="Collapsed"
+                                   Text="{Binding (ctrl:Hint.Text), RelativeSource={RelativeSource TemplatedParent}}"
+                                   Foreground="{StaticResource MutedBrush}" FontSize="13"
+                                   Margin="10,0,32,0" VerticalAlignment="Center" />
+
+                        <Popup x:Name="PART_Popup" AllowsTransparency="True" Focusable="False"
+                               Placement="Bottom" PopupAnimation="Fade"
+                               IsOpen="{TemplateBinding IsDropDownOpen}">
+                            <Border Background="{StaticResource PopupBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="6" Margin="0,4,0,0"
+                                    MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                    MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                <ScrollViewer>
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="SelectedItem" Value="{x:Null}">
+                            <Setter TargetName="HintText" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Casella di testo interna al DatePicker: va svuotata della sua cromatura,
+         il riquadro lo disegna il DatePicker. -->
+    <Style TargetType="DatePickerTextBox">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="CaretBrush" Value="{StaticResource TextBrush}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DatePickerTextBox">
+                    <Border Background="Transparent">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="10,0,0,0"
+                                      VerticalAlignment="Center" Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="DatePicker">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="MinHeight" Value="{StaticResource InputHeight}" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+        <!-- Assegnato esplicitamente: il Calendar del DatePicker nasce dentro un Popup e
+             non è garantito che peschi lo stile implicito, per questo restava con
+             l'aspetto di sistema. -->
+        <Setter Property="CalendarStyle" Value="{DynamicResource ModernCalendar}" />
+        <Setter Property="SelectedDateFormat" Value="Short" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DatePicker">
+                    <Border x:Name="Bd" Background="{StaticResource InputBrush}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource InputRadius}">
+                        <Grid x:Name="PART_Root">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid Grid.Column="0">
+                                <!-- SelectedDate è una proprietà di dipendenza, quindi qui
+                                     basta un trigger: il segnaposto sparisce appena c'è una
+                                     data, esattamente come in un campo di testo. -->
+                                <TextBlock x:Name="HintText" IsHitTestVisible="False" Visibility="Collapsed"
+                                           Text="{Binding (ctrl:Hint.Text), RelativeSource={RelativeSource TemplatedParent}}"
+                                           Foreground="{StaticResource MutedBrush}" FontSize="13"
+                                           Margin="11,0,0,0" VerticalAlignment="Center" />
+                                <DatePickerTextBox x:Name="PART_TextBox"
+                                                   VerticalAlignment="Center"
+                                                   Focusable="{TemplateBinding Focusable}" />
+                            </Grid>
+
+                            <Button x:Name="PART_Button" Grid.Column="1" Width="32" Focusable="False"
+                                    Background="Transparent" Foreground="{StaticResource MutedBrush}"
+                                    Cursor="Hand">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="Transparent">
+                                            <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="14" Foreground="{StaticResource MutedBrush}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <Popup x:Name="PART_Popup" AllowsTransparency="True" StaysOpen="False"
+                                   Placement="Bottom" PlacementTarget="{Binding ElementName=Bd}" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="SelectedDate" Value="{x:Null}">
+                            <Setter TargetName="HintText" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource InputHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Calendario a comparsa del DatePicker -->
+
+    <Style TargetType="CalendarDayButton">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="MinWidth" Value="30" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CalendarDayButton">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Margin="1">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsToday" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="Bd" Property="BorderThickness" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="White" />
+                        </Trigger>
+                        <Trigger Property="IsInactive" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                            <Setter Property="Opacity" Value="0.6" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.35" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Pulsanti di mese/anno nelle viste di livello superiore -->
+    <Style TargetType="CalendarButton">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="MinWidth" Value="42" />
+        <Setter Property="MinHeight" Value="42" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CalendarButton">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Margin="2">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+                        </Trigger>
+                        <Trigger Property="HasSelectedDays" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="White" />
+                        </Trigger>
+                        <Trigger Property="IsInactive" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CalendarNavButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="CalendarItem">
+        <Setter Property="Background" Value="{StaticResource PopupBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CalendarItem">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                            CornerRadius="8" Padding="8">
+                        <Grid x:Name="PART_Root">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="PART_PreviousButton" Grid.Column="0" Content="&#xE76B;"
+                                        Style="{StaticResource CalendarNavButton}" />
+                                <Button x:Name="PART_HeaderButton" Grid.Column="1" Cursor="Hand"
+                                        Foreground="{StaticResource TextBrush}" Background="Transparent"
+                                        FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Padding="6,4">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background"
+                                                            Value="{StaticResource SurfaceAltBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                                <Button x:Name="PART_NextButton" Grid.Column="2" Content="&#xE76C;"
+                                        Style="{StaticResource CalendarNavButton}" />
+                            </Grid>
+
+                            <Grid x:Name="PART_MonthView" Grid.Row="1" Visibility="Visible" />
+                            <Grid x:Name="PART_YearView" Grid.Row="1" Visibility="Hidden" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <DataTrigger Binding="{Binding DisplayMode,
+                                     RelativeSource={RelativeSource AncestorType=Calendar}}" Value="Year">
+                            <Setter TargetName="PART_MonthView" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="PART_YearView" Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding DisplayMode,
+                                     RelativeSource={RelativeSource AncestorType=Calendar}}" Value="Decade">
+                            <Setter TargetName="PART_MonthView" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="PART_YearView" Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ModernCalendar" TargetType="Calendar">
+        <Setter Property="Background" Value="{StaticResource PopupBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+    </Style>
+
+    <!-- Stessa cosa come stile implicito, per i Calendar usati fuori da un DatePicker. -->
+    <Style TargetType="Calendar" BasedOn="{StaticResource ModernCalendar}" />
+
+    <!-- Scrollbar invisibili (richiesta esplicita): il template è vuoto e l'ingombro è
+         zero, ma lo ScrollViewer continua a scorrere con rotellina, tastiera e trascinamento.
+         Sparisce la barra, non lo scorrimento. -->
+    <Style TargetType="ScrollBar">
+        <Setter Property="Width" Value="0" />
+        <Setter Property="Height" Value="0" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Border x:Name="Box" Width="18" Height="18" CornerRadius="4"
+                                Background="{StaticResource InputBrush}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                VerticalAlignment="Center">
+                            <TextBlock x:Name="Check" Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="11" Foreground="White" Visibility="Collapsed"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="DataGrid">

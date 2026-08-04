@@ -182,9 +182,34 @@ public partial class AccountsViewModel : PageViewModel
     /// Accetta sia "12,34" sia "12.34": l'utente scrive con la virgola, l'API vuole il punto.
     /// La validazione vera resta comunque sul server (§1.3).
     /// </summary>
+    /// <summary>
+    /// Legge un importo digitato a mano, accettando sia la notazione italiana che quella
+    /// inglese.
+    ///
+    /// Serve perché l'interfaccia ora *mostra* "1.234,56": è naturale riscriverlo così, e
+    /// una sostituzione ingenua della virgola lo trasformerebbe in "1.234.56". Regola:
+    /// quando compaiono entrambi i separatori, quello più a destra è il decimale e l'altro
+    /// è il raggruppamento delle migliaia; con uno solo, si considera decimale.
+    /// </summary>
     internal static decimal ParseAmount(string? text)
     {
-        var normalized = (text ?? string.Empty).Trim().Replace(',', '.');
+        var raw = (text ?? string.Empty).Trim().Replace(" ", string.Empty);
+        var lastComma = raw.LastIndexOf(',');
+        var lastDot = raw.LastIndexOf('.');
+
+        string normalized;
+        if (lastComma >= 0 && lastDot >= 0)
+        {
+            var decimalSeparator = lastComma > lastDot ? ',' : '.';
+            var groupSeparator = decimalSeparator == ',' ? '.' : ',';
+            normalized = raw.Replace(groupSeparator.ToString(), string.Empty)
+                            .Replace(decimalSeparator, '.');
+        }
+        else
+        {
+            normalized = raw.Replace(',', '.');
+        }
+
         if (!decimal.TryParse(normalized, System.Globalization.NumberStyles.Number,
                 System.Globalization.CultureInfo.InvariantCulture, out var value))
         {

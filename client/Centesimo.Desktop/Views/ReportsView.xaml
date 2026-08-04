@@ -29,7 +29,7 @@
             <StackPanel>
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Right" Style="{StaticResource Muted}"
-                               Text="{Binding NetWorth.Total, StringFormat=Patrimonio netto: {0:N2} €}" />
+                               Text="{Binding NetWorth.Total, StringFormat=Patrimonio netto: {0:N2} EUR}" />
                     <TextBlock Text="{Binding SelectedMetric}" Style="{StaticResource H2}" />
                 </DockPanel>
                 <controls:LineChart Height="260" ItemsSource="{Binding Points}"
@@ -41,7 +41,7 @@
             <DockPanel>
                 <DockPanel DockPanel.Dock="Top">
                     <TextBlock DockPanel.Dock="Right"
-                               Text="{Binding BreakdownTotal, StringFormat=Totale: {0:N2} €}"
+                               Text="{Binding BreakdownTotal, StringFormat=Totale: {0:N2} EUR}"
                                FontWeight="SemiBold" />
                     <TextBlock Text="Ripartizione per categoria" Style="{StaticResource H2}" />
                 </DockPanel>
@@ -50,7 +50,7 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Categoria" Width="*" Binding="{Binding CategoryName}" />
                         <DataGridTextColumn Header="Totale" Width="140"
-                                            Binding="{Binding Total, StringFormat={}{0:N2} €}" />
+                                            Binding="{Binding Total, Converter={StaticResource Money}}" />
                         <DataGridTemplateColumn Header="Quota" Width="220">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>

@@ -15,6 +15,42 @@ public sealed class CentesimoApi(ApiClient client)
 
     private static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
+    // --- Account utente ----------------------------------------------------
+
+    /// <summary>
+    /// Cambia la password. Il server revoca <b>tutte</b> le sessioni, quindi dopo questa
+    /// chiamata anche quella corrente non è più valida: chi la usa deve rifare il login.
+    /// </summary>
+    public Task ChangePasswordAsync(string currentPassword, string newPassword)
+        => Client.PostNoContentAsync($"{V1}/auth/change-password", new
+        {
+            current_password = currentPassword,
+            new_password = newPassword
+        });
+
+    // --- Impostazioni ------------------------------------------------------
+
+    public Task<MarketDataSettings> GetMarketDataSettingsAsync()
+        => Client.GetAsync<MarketDataSettings>($"{V1}/settings/market-data");
+
+    /// <summary>Chiave vuota = lascia invariata quella già salvata sul server.</summary>
+    public Task<MarketDataSettings> SaveMarketDataSettingsAsync(
+        string provider, string? apiKey, string searchUrl)
+        => Client.PutAsync<MarketDataSettings>($"{V1}/settings/market-data", new
+        {
+            provider,
+            api_key = apiKey,
+            search_url = searchUrl
+        });
+
+    /// <summary>Cancella tutti i dati personali. Irreversibile.</summary>
+    public Task<ResetResult> ResetDataAsync(string password, string confirmation)
+        => Client.PostAsync<ResetResult>($"{V1}/settings/reset-data", new
+        {
+            password,
+            confirmation
+        });
+
     // --- Conti ------------------------------------------------------------
 
     public Task<List<Account>> GetAccountsAsync(bool includeArchived = false)
@@ -173,6 +209,21 @@ public sealed class CentesimoApi(ApiClient client)
     public Task DeleteWidgetAsync(int id) => Client.DeleteAsync($"{V1}/dashboard/widgets/{id}");
 
     // --- Portafoglio --------------------------------------------------------
+
+    /// <summary>
+    /// Valore delle posizioni nel tempo. Legge solo l'archivio locale del server, quindi
+    /// cambiare periodo o passo non consuma richieste verso il provider.
+    /// </summary>
+    public Task<PortfolioHistory> GetPortfolioHistoryAsync(
+        int? accountId, int days, int intervalDays)
+    {
+        var query = $"days={days}&interval_days={intervalDays}";
+        if (accountId is { } id)
+        {
+            query += $"&account_id={id}";
+        }
+        return Client.GetAsync<PortfolioHistory>($"{V1}/portfolio/history?{query}");
+    }
 
     public Task<PortfolioSummary> GetPortfolioAsync(int accountId)
         => Client.GetAsync<PortfolioSummary>($"{V1}/portfolio/{accountId}");

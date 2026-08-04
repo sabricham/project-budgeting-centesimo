@@ -135,6 +135,111 @@ ammortamento per i mutui, drag&drop dei widget, caching locale sul client.
 
 ## Changelog
 
+### 2026-08-04 (7) — pagina Investimenti, impostazioni avanzate, azzeramento
+
+- **Scheda «Portafoglio» rinominata «Investimenti».** Selettore conto con voce «Tutti i
+  conti» (aggrega i riepiloghi), colonna «Conto» nelle tabelle, selettore del periodo
+  (1 mese → 5 anni, con passo crescente perché lo storico è giornaliero), interruttore a
+  tutta larghezza fra **Posizioni** e **Operazioni** con grafico sopra e tabella sotto,
+  scelta del conto nella maschera di inserimento, colonna **Commissioni** (il dato c'era
+  già lato server, mancava solo la colonna), colori verde/rosso sulle plus/minusvalenze e
+  pulsante per alternare valori assoluti e percentuali.
+- **Nuovo endpoint `GET /portfolio/history`**: ricostruisce il valore delle posizioni nel
+  tempo dalle operazioni più `price_history`, usando **la chiusura di quella data** e non
+  il prezzo di oggi. Legge solo l'archivio: cambiare periodo non consuma richieste API.
+- **Bug trovato provando:** la serie tornava tutta a zero. La colonna `type` è testuale
+  (enum come CHECK, non tipo nativo), quindi `r.type is StockTransactionType.buy` è sempre
+  falso e ogni acquisto veniva contato come vendita. Corretto con `==`.
+- **Impostazioni**: provider, chiave API (mascherata, mai restituita in chiaro) ed endpoint
+  di ricerca simboli modificabili — deroga a §3.1 approvata, con la tabella `app_settings`
+  (migrazione `0003`) che sovrascrive il Docker secret quando valorizzata. Più un pulsante
+  per **azzerare tutti i dati personali**, protetto da password *e* dalla parola «AZZERA».
+- **Valuta a elenco chiuso** (20 principali): un campo libero accetta refusi che il server
+  rifiuta dopo il giro di rete, o peggio accetta e poi i cambi non trovano corrispondenza.
+- `ParseAmount` ora accetta anche "1.234,56": ora che l'interfaccia *mostra* i numeri così,
+  è naturale riscriverli così, e la sostituzione ingenua della virgola li rompeva.
+- **Ricerca titoli e autocompletamento: abbandonati** su decisione dell'utente — con 25
+  richieste al giorno una ricerca a ogni tasto premuto è impraticabile. L'ISIN non è
+  comunque supportato da Alpha Vantage. L'endpoint di ricerca resta configurabile.
+
+### 2026-08-04 (6) — caching dei dati di mercato entro la quota gratuita
+
+- **Nuove tabelle `price_history` e `api_budget`** (migrazione `0002`, generata con
+  `--autogenerate` e corretta a mano: `price_cache.asset_kind` era NOT NULL senza
+  `server_default` e sarebbe fallita su tabella popolata).
+- **Una richiesta per ticker al giorno.** Sostituito `GLOBAL_QUOTE` con
+  `TIME_SERIES_DAILY` / `DIGITAL_CURRENCY_DAILY`: la serie giornaliera contiene già la
+  quotazione di oggi, quindi la stessa richiesta copre prezzo corrente **e** storico.
+  `GLOBAL_QUOTE` inoltre non espone la valuta e il codice assumeva USD — sbagliato sulle
+  cripto.
+- Job prezzi da ogni 30 minuti (48 chiamate/giorno per ticker) a **una volta al giorno**;
+  i ticker già aggiornati oggi vengono saltati; `ApiBudget` impedisce di sforare la quota
+  (tetto prudenziale 20 su 25) degradando sui dati in archivio.
+- Riconoscimento del rate-limit: Alpha Vantage risponde **200 OK** con un campo
+  `Note`/`Information` al posto dei dati — trattarlo come valido salverebbe serie vuote
+  sopra quelle buone.
+- **Bug trovato provando davvero:** `BTC` veniva risolto come *azione* a 28,23 USD, perché
+  esiste un titolo quotato con quel ticker e l'endpoint azionario veniva tentato per primo.
+  Aggiunta una lista di simboli cripto noti da provare prima. I 100 giorni sbagliati già
+  salvati sono stati cancellati.
+- Verificato sul server: BTC risolto come cripto a 55.013,64 EUR, **350 giorni di storico
+  da una sola richiesta** (l'endpoint cripto non ha il limite di 100 punti delle azioni),
+  seconda chiamata consecutiva a costo zero (`already_fresh`).
+- Vincoli accertati sulla documentazione: piano gratuito **25 richieste/giorno**;
+  `outputsize=full` e `TIME_SERIES_DAILY_ADJUSTED` sono a pagamento; **l'ISIN non è
+  supportato da nessun endpoint** → ricerca per ISIN scartata. Lo storico si accumula da
+  solo nella nostra tabella, aggirando la finestra di 100 giorni del piano gratuito.
+
+### 2026-08-04 (5) — formattazione, segnaposto, dati di mercato
+
+- **Cultura it-IT applicata all'app.** Non basta `CultureInfo.DefaultThreadCurrentCulture`:
+  WPF nei binding ignora la cultura del thread e usa `FrameworkElement.LanguageProperty`,
+  che vale sempre `en-US`. È il motivo per cui gli importi uscivano come `76,857.3113`.
+  Aggiunti i convertitori `Money` (2 decimali, `1.234,56 EUR`, sigla e non simbolo),
+  `Quantity` e `Percent`; i valori nulli diventano `—` invece di una cella vuota o di un
+  simbolo di valuta orfano. Il formato sul filo col server resta ISO/invariante (§1.3).
+- **Corretto il glitch dei menù a tendina** (`Account { Id = 1, Name = ... }`): nel template
+  del `ComboBox` mancava `ContentTemplateSelector`. In WPF `DisplayMemberPath` passa da un
+  selettore di template interno, non da `SelectionBoxItemTemplate`. Colpiva tutti e 9 i
+  menù dell'applicazione.
+- **Testo disallineato dal segnaposto**: il rientro veniva applicato due volte (proprietà
+  `Padding` del controllo *e* margine del contenitore). Ora entrambi stanno nella stessa
+  griglia con lo stesso margine.
+- **Convenzione unica dei campi**: niente etichetta sopra, solo descrizione breve dentro il
+  riquadro con iniziale maiuscola. 36 etichette convertite. Per `PasswordBox` il
+  segnaposto passa da `Hint.IsEmpty` (`Password` non è una proprietà di dipendenza, quindi
+  nessun trigger può osservarla); per `DatePicker` da un trigger su `SelectedDate`.
+- Scrollbar rese invisibili mantenendo lo scorrimento; `CalendarStyle` assegnato
+  esplicitamente al `DatePicker` perché il calendario nasce in un `Popup`.
+- **Alpha Vantage configurato** sul server (chiave nel secret, `MARKET_DATA_PROVIDER=alphavantage`).
+  Verificato sulla documentazione: `SYMBOL_SEARCH` cerca solo per parole chiave — **l'ISIN
+  non è supportato da nessun endpoint**, quindi la ricerca per ISIN è scartata. Lo storico
+  c'è (giornaliero/settimanale/mensile e intraday 1·5·15·30·60min), ma **l'intraday sulle
+  cripto è a pagamento** e il piano gratuito dà **25 richieste al giorno**. Conseguenze da
+  applicare: `price_refresh_minutes` a 30 significa 48 chiamate/giorno per ticker e va
+  alzato; lo storico va salvato lato server; l'autocompletamento non può partire ad ogni
+  tasto premuto.
+
+### 2026-08-04 (4) — interfaccia: campi di input e impostazioni
+
+- **`ComboBox`, `DatePicker` e `Calendar` avevano solo font e margine nel tema**, quindi
+  conservavano la cromatura chiara del tema di sistema: su sfondo scuro erano riquadri
+  bianchi con testo illeggibile. Ora hanno `ControlTemplate` completi — impostare
+  `Background`/`Foreground` non basta, va sostituito il template.
+- Aggiunti stile `FieldLabel` e proprietà allegata `Controls/Hint.Text` (segnaposto
+  mostrato quando il campo è vuoto, e quando una tendina non ha ancora una scelta).
+  Le maschere usavano `ToolTip`, che si vede solo al passaggio del mouse: davanti a una
+  colonna di riquadri identici non dice nulla. Etichettati tutti i campi di Conti,
+  Categorie e budget, Obiettivi, Portafoglio.
+- `TextBox`/`PasswordBox`/`CheckBox` rifatti con angoli arrotondati, bordo che si accende
+  sul focus e riempimento più chiaro della card, così il campo si distingue dal fondo.
+- **Nuova finestra Impostazioni**, aperta dall'ingranaggio accanto al nome nella barra
+  laterale: dati dell'account, **cambio password** e riepilogo della connessione
+  (indirizzo e certificato pinnato). Dopo un cambio riuscito l'app si chiude, perché il
+  server revoca *tutte* le sessioni compresa quella in corso.
+- Verificato: build Release senza warning, avvio senza errori di parsing XAML. **L'aspetto
+  a schermo non è stato verificato** (non è possibile ispezionare le finestre WPF da qui).
+
 ### 2026-08-04 (3) — configurazione del server dal client
 
 - **Corretto un difetto che distruggeva la configurazione.** `App.OnStartup` faceva

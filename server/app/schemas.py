@@ -597,6 +597,53 @@ class CategoryBreakdownOut(Schema):
     items: list[CategoryBreakdownItem]
 
 
+# --------------------------------------------------------------------------- #
+#  Impostazioni e azzeramento
+# --------------------------------------------------------------------------- #
+
+
+class MarketDataSettingsOut(Schema):
+    provider: str
+    #: solo le ultime cifre: la chiave salvata non torna mai in chiaro
+    api_key_masked: str | None
+    api_key_configured: bool
+    search_url: str
+    signup_url: str
+    daily_budget: int | None
+    used_today: int
+
+
+class MarketDataSettingsIn(Schema):
+    provider: str | None = Field(default=None, max_length=24)
+    #: vuoto o assente = lascia invariata la chiave già salvata
+    api_key: str | None = Field(default=None, max_length=128)
+    search_url: str | None = Field(default=None, max_length=255)
+
+
+class ResetRequest(Schema):
+    password: str
+    #: deve valere "AZZERA": un click distratto non deve poter cancellare tutto
+    confirmation: str
+
+
+class ResetResult(Schema):
+    deleted: dict[str, int]
+    total: int
+
+
+class PortfolioHistoryPoint(Schema):
+    date: dt.date
+    value: Money
+
+
+class PortfolioHistoryOut(Schema):
+    currency: str
+    interval_days: int
+    points: list[PortfolioHistoryPoint]
+    #: ticker senza storico salvato: la curva li ignora invece di fingere uno zero
+    missing: list[str] = Field(default_factory=list)
+
+
 class HealthOut(Schema):
     status: str
     db: str

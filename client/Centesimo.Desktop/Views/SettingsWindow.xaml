@@ -1,0 +1,136 @@
+<Window x:Class="Centesimo.Desktop.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Centesimo.Desktop.Controls"
+        Title="Centesimo — Impostazioni"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="{StaticResource BackgroundBrush}">
+
+    <StackPanel Margin="24">
+        <TextBlock Text="Impostazioni" Style="{StaticResource H1}" />
+
+        <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="Account" Style="{StaticResource H2}" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Utente" Style="{StaticResource Muted}"
+                               Margin="0,0,16,4" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Username}" Margin="0,0,0,4" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Nome" Style="{StaticResource Muted}"
+                               Margin="0,0,16,4" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DisplayName}" Margin="0,0,0,4" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Valuta base" Style="{StaticResource Muted}"
+                               Margin="0,0,16,0" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BaseCurrency}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="Cambia password" Style="{StaticResource H2}" />
+                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,12"
+                           Text="Il cambio revoca tutte le sessioni attive, su questo e su ogni altro dispositivo: dopo la conferma va rifatto il login." />
+
+                <PasswordBox x:Name="CurrentPasswordBox" ctrl:Hint.Text="Password attuale" />
+
+                <PasswordBox x:Name="NewPasswordBox" ctrl:Hint.Text="Nuova password (almeno 8 caratteri)" />
+
+                <PasswordBox x:Name="ConfirmPasswordBox" KeyDown="ConfirmPasswordBox_KeyDown" ctrl:Hint.Text="Ripeti la nuova password" />
+
+                <Button Content="Cambia password" Click="ChangePassword_Click" Margin="0,4,0,0"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+
+                <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Margin="0,12,0,0"
+                           Foreground="{StaticResource NegativeBrush}" />
+                <TextBlock Text="{Binding SuccessMessage}" TextWrapping="Wrap" Margin="0,12,0,0"
+                           Foreground="{StaticResource PositiveBrush}" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="Connessione" Style="{StaticResource H2}" />
+                <!-- Sola lettura: qui l'etichetta ci vuole, non è un campo da compilare
+                     e un segnaposto non avrebbe niente da segnare. -->
+                <TextBlock Text="Server" Style="{StaticResource Muted}" Margin="0,0,0,2" />
+                <TextBlock Text="{Binding ServerUrl}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                <TextBlock Text="Certificato pinnato" Style="{StaticResource Muted}" Margin="0,0,0,2" />
+                <TextBlock Text="{Binding CertificatePath}" TextWrapping="Wrap" Style="{StaticResource Muted}" />
+                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"
+                           Text="L'indirizzo del server si cambia dal campo «Server» nella finestra di accesso." />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="Dati di mercato" Style="{StaticResource H2}" />
+                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,12"
+                           Text="Senza chiave il portafoglio funziona lo stesso: i prezzi si inseriscono a mano dalla pagina Investimenti." />
+
+                <ComboBox ItemsSource="{Binding Providers}" SelectedItem="{Binding Provider}"
+                          ctrl:Hint.Text="Provider" />
+
+                <TextBlock Text="{Binding ApiKeyStatus}" Style="{StaticResource Muted}"
+                           TextWrapping="Wrap" Margin="2,0,0,8" />
+
+                <PasswordBox x:Name="ApiKeyBox" PasswordChanged="ApiKeyBox_PasswordChanged"
+                             ctrl:Hint.Text="Nuova chiave API (lascia vuoto per non cambiarla)" />
+
+                <TextBox Text="{Binding SearchUrl, UpdateSourceTrigger=PropertyChanged}"
+                         ctrl:Hint.Text="Endpoint di ricerca simboli" />
+
+                <TextBlock Text="{Binding BudgetStatus}" Style="{StaticResource Muted}"
+                           TextWrapping="Wrap" Margin="2,0,0,10" />
+
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Salva" Command="{Binding SaveMarketDataCommand}"
+                            Margin="0,0,8,0" />
+                    <Button Content="Ottieni una chiave gratuita" Style="{StaticResource GhostButton}"
+                            Command="{Binding OpenSignupCommand}" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding MarketDataMessage}" TextWrapping="Wrap" Margin="0,10,0,0"
+                           Style="{StaticResource Muted}" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}" BorderBrush="{StaticResource NegativeBrush}">
+            <StackPanel>
+                <TextBlock Text="Azzera i dati" Style="{StaticResource H2}"
+                           Foreground="{StaticResource NegativeBrush}" />
+                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,12"
+                           Text="Cancella conti, movimenti, categorie, budget, obiettivi, ricorrenze e portafoglio. L'utente e le impostazioni restano. Non c'è modo di annullare: se vuoi una copia, fai prima un backup del database (vedi docs/DEPLOY.md)." />
+
+                <PasswordBox x:Name="ResetPasswordBox" ctrl:Hint.Text="La tua password" />
+
+                <TextBox Text="{Binding ResetConfirmation, UpdateSourceTrigger=PropertyChanged}"
+                         ctrl:Hint.Text="Scrivi AZZERA per confermare" />
+
+                <Button Content="Azzera definitivamente" Click="Reset_Click"
+                        Background="{StaticResource NegativeBrush}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+
+                <TextBlock Text="{Binding ResetMessage}" TextWrapping="Wrap" Margin="0,10,0,0"
+                           Foreground="{StaticResource NegativeBrush}" />
+            </StackPanel>
+        </Border>
+
+        <Button Content="Chiudi" Style="{StaticResource GhostButton}" Click="Close_Click"
+                HorizontalAlignment="Right" />
+    </StackPanel>
+</Window>
