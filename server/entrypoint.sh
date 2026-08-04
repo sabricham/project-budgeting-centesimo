@@ -27,7 +27,7 @@ if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
         -days 3650 \
         -keyout "$KEY_FILE" \
         -out "$CERT_FILE" \
-        -subj "/CN=${CERT_CN:-localhost}/O=Money App/C=IT" \
+        -subj "/CN=${CERT_CN:-localhost}/O=Centesimo/C=IT" \
         -addext "subjectAltName=$SAN" \
         2>/dev/null
     chmod 600 "$KEY_FILE"

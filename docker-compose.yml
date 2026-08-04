@@ -1,4 +1,4 @@
-# Money App — stack locale (§3.3 dell'architettura).
+# Centesimo — stack locale (§3.3 dell'architettura).
 #
 #   db  : PostgreSQL 16, raggiungibile SOLO dalla rete `internal` (nessuna porta pubblicata).
 #   api : FastAPI su HTTPS 8443, unico servizio esposto verso l'host.

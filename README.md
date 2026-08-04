@@ -1,4 +1,4 @@
-# Money App
+# Centesimo
 
 Tool personale di gestione finanziaria: conti, transazioni, trasferimenti, budget,
 obiettivi di risparmio, debiti/prestiti, abbonamenti ricorrenti, portafoglio investimenti
@@ -12,7 +12,7 @@ Architettura in due parti nettamente separate:
 | [`client/`](client) | Client Windows nativo che consuma l'API | .NET, WPF, MVVM |
 
 Nessun client parla mai direttamente col database — è una decisione chiusa
-(vedi [docs/ARCHITETTURA_MONEY_APP.md](docs/ARCHITETTURA_MONEY_APP.md) §0). Una futura app
+(vedi [docs/ARCHITETTURA_CENTESIMO.md](docs/ARCHITETTURA_CENTESIMO.md) §0). Una futura app
 Android sarà semplicemente un altro client dello stesso backend.
 
 > **Dove gira il backend, oggi.** Dal 2026-08-04 il server non è più su questa macchina:
@@ -100,7 +100,7 @@ e puoi esercitare tutta l'API a mano.
 ### 5. Client Windows
 
 ```bash
-dotnet run --project client/MoneyApp.Desktop
+dotnet run --project client/Centesimo.Desktop
 ```
 
 Al primo avvio compare il login; dalle volte successive l'app rientra da sola usando il
@@ -116,7 +116,7 @@ Budgeting/
 ├─ .env.example              variabili non sensibili
 ├─ secrets/                  password e chiavi (mai versionate)
 ├─ docs/
-│   ├─ ARCHITETTURA_MONEY_APP.md   documento di riferimento — decisioni chiuse
+│   ├─ ARCHITETTURA_CENTESIMO.md   documento di riferimento — decisioni chiuse
 │   ├─ PROJECT_MEMORY.md           diario di bordo: stato, decisioni, changelog
 │   └─ API.md                      elenco endpoint
 ├─ server/
@@ -134,9 +134,9 @@ Budgeting/
 │   │                              portafoglio, dati di mercato)
 │   └─ tests/                      pytest
 └─ client/
-    ├─ MoneyApp.sln
-    └─ MoneyApp.Desktop/
-        ├─ Services/               ApiClient, MoneyApi, TokenStore, AppSettings
+    ├─ Centesimo.sln
+    └─ Centesimo.Desktop/
+        ├─ Services/               ApiClient, CentesimoApi, TokenStore, AppSettings
         ├─ Models/                 DTO speculari agli schemi del server
         ├─ ViewModels/             uno per pagina (MVVM)
         ├─ Views/                  XAML
@@ -262,7 +262,7 @@ docker compose exec db psql -U money_app -d money
 ```
 
 ```bash
-dotnet build client/MoneyApp.sln
+dotnet build client/Centesimo.sln
 ```
 
 ## Problemi frequenti
@@ -273,7 +273,7 @@ gitignorati, vanno generati come nell'[avvio rapido](#1-segreti).
 **Il client dice "Server non raggiungibile"** — controlla `docker compose ps` e
 `curl -k https://localhost:8443/health`. Se l'API risponde ma il client no, il problema è
 il certificato: verifica che `server/certs/server.crt` esista e, se hai cambiato macchina
-o percorso, correggi `ServerCertificatePath` in `%APPDATA%\MoneyApp\settings.json`.
+o percorso, correggi `ServerCertificatePath` in `%APPDATA%\Centesimo\settings.json`.
 
 **Il login funziona ma al riavvio ricompare** — il refresh token è stato revocato (logout,
 cambio password) o `secrets/jwt_secret.txt` è cambiato. Basta rifare il login.
@@ -289,7 +289,7 @@ messaggio esplicito: meglio un errore chiaro che un saldo sbagliato.
 
 ## Documentazione
 
-- [docs/ARCHITETTURA_MONEY_APP.md](docs/ARCHITETTURA_MONEY_APP.md) — documento di
+- [docs/ARCHITETTURA_CENTESIMO.md](docs/ARCHITETTURA_CENTESIMO.md) — documento di
   riferimento con le decisioni **chiuse**. Da leggere prima di modificare l'architettura.
 - [docs/PROJECT_MEMORY.md](docs/PROJECT_MEMORY.md) — stato attuale, log delle decisioni
   con motivazioni e alternative scartate, schema dati, prossimi passi, changelog.

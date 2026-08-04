@@ -135,7 +135,7 @@ async def _seed_demo(session, user: User) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed iniziale di Money App")
+    parser = argparse.ArgumentParser(description="Seed iniziale di Centesimo")
     parser.add_argument("--username", required=True)
     parser.add_argument("--password", default=None, help="se omessa ne viene generata una")
     parser.add_argument("--demo", action="store_true", help="crea anche conti di esempio")

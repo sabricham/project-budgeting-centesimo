@@ -1,4 +1,4 @@
-# API — Money App
+# API — Centesimo
 
 **Fonte autoritativa:** l'OpenAPI generato da FastAPI su <https://localhost:8443/docs>
 (schema grezzo su `/openapi.json`). Questo file è l'indice leggibile: se un giorno

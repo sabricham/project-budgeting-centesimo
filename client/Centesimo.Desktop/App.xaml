@@ -1,0 +1,37 @@
+<Application x:Class="Centesimo.Desktop.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Centesimo.Desktop.ViewModels"
+             xmlns:views="clr-namespace:Centesimo.Desktop.Views">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Associazione ViewModel -> View: la shell mostra un ContentControl
+                 e WPF sceglie la vista giusta in base al tipo del ViewModel. -->
+            <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+                <views:DashboardView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AccountsViewModel}">
+                <views:AccountsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:CategoriesViewModel}">
+                <views:CategoriesView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:RecurringViewModel}">
+                <views:RecurringView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:PortfolioViewModel}">
+                <views:PortfolioView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:GoalsViewModel}">
+                <views:GoalsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ReportsViewModel}">
+                <views:ReportsView />
+            </DataTemplate>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

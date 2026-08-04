@@ -1,0 +1,55 @@
+<Window x:Class="Centesimo.Desktop.Views.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Centesimo — Accesso"
+        Width="420" MinHeight="430"
+        WindowStartupLocation="CenterScreen"
+        SizeToContent="Height"
+        ResizeMode="CanResize"
+        Background="{StaticResource BackgroundBrush}">
+
+    <!-- SizeToContent="Height": un messaggio d'errore lungo (le eccezioni TLS lo sono)
+         veniva tagliato dal bordo inferiore, lasciando fuori proprio la parte che spiega
+         la causa. -->
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock Text="Centesimo" Style="{StaticResource H1}" />
+            <TextBlock Style="{StaticResource Muted}"
+                       Text="Gestione finanziaria personale — accesso all'API locale" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1">
+            <TextBlock Text="Server" Style="{StaticResource Muted}" Margin="0,0,0,4" />
+            <!-- Modificabile: l'indirizzo cambia fra LAN e Tailscale (§1.4) e non deve
+                 richiedere di editare settings.json a mano. Viene salvato solo dopo un
+                 login riuscito. -->
+            <TextBox Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Text="Nome utente" Style="{StaticResource Muted}" Margin="0,8,0,4" />
+            <TextBox x:Name="UsernameBox" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Text="Password" Style="{StaticResource Muted}" Margin="0,8,0,4" />
+            <PasswordBox x:Name="PasswordBox" KeyDown="PasswordBox_KeyDown" />
+
+            <Button Content="Accedi" Click="Login_Click" Margin="0,8,0,0"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Margin="0,12,0,0"
+                       Foreground="{StaticResource NegativeBrush}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3">
+            <TextBlock Text="{Binding ConfigWarning}" TextWrapping="Wrap" Margin="0,0,0,6"
+                       Foreground="{StaticResource NegativeBrush}" />
+            <TextBlock Text="{Binding CertificateInfo}" TextWrapping="Wrap"
+                       Style="{StaticResource Muted}" />
+        </StackPanel>
+    </Grid>
+</Window>

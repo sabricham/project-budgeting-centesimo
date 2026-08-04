@@ -1,4 +1,4 @@
-"""Money App — API REST (§1.2).
+"""Centesimo — API REST (§1.2).
 
 Unico punto di accesso ai dati: nessun client parla direttamente col database.
 Tutti gli endpoint di dominio stanno sotto `/api/v1` e richiedono un access token;
@@ -51,11 +51,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Money App API",
+    title="Centesimo API",
     version=VERSION,
     description=(
         "API di gestione finanziaria personale. Importi come stringhe decimali, "
-        "date in ISO 8601 UTC. Vedi docs/ARCHITETTURA_MONEY_APP.md."
+        "date in ISO 8601 UTC. Vedi docs/ARCHITETTURA_CENTESIMO.md."
     ),
     lifespan=lifespan,
     docs_url="/docs",

@@ -1,0 +1,155 @@
+<UserControl x:Class="Centesimo.Desktop.Views.PortfolioView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="340" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <DockPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,12">
+            <ComboBox DockPanel.Dock="Right" Width="200" ItemsSource="{Binding InvestmentAccounts}"
+                      SelectedItem="{Binding SelectedAccount}" DisplayMemberPath="Name" />
+            <TextBlock Text="Portafoglio" Style="{StaticResource H1}" />
+        </DockPanel>
+
+        <Border Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Card}" Background="#33E5556E"
+                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Grid.Row="2" Grid.ColumnSpan="2" Style="{StaticResource Card}" Background="#33E0A63C"
+                Visibility="{Binding MissingPricesWarning, Converter={StaticResource StringToVisibility}}">
+            <TextBlock Text="{Binding MissingPricesWarning}" TextWrapping="Wrap" />
+        </Border>
+
+        <ScrollViewer Grid.Row="3" Grid.Column="0" Margin="0,0,16,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Riepilogo" Style="{StaticResource H2}" />
+                        <DockPanel Margin="0,0,0,4">
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding Summary.CashBalance, StringFormat={}{0:N2} €}" />
+                            <TextBlock Text="Liquidità" Style="{StaticResource Muted}" />
+                        </DockPanel>
+                        <DockPanel Margin="0,0,0,4">
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding Summary.HoldingsValue, StringFormat={}{0:N2} €}" />
+                            <TextBlock Text="Valore posizioni" Style="{StaticResource Muted}" />
+                        </DockPanel>
+                        <DockPanel Margin="0,0,0,4">
+                            <TextBlock DockPanel.Dock="Right" FontWeight="SemiBold"
+                                       Text="{Binding Summary.TotalValue, StringFormat={}{0:N2} €}" />
+                            <TextBlock Text="Totale" />
+                        </DockPanel>
+                        <DockPanel Margin="0,0,0,4">
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding Summary.UnrealizedPnl, StringFormat={}{0:N2} €}"
+                                       Foreground="{Binding Summary.UnrealizedPnl, Converter={StaticResource AmountToBrush}}" />
+                            <TextBlock Text="Plus/minus non realizzata" Style="{StaticResource Muted}" />
+                        </DockPanel>
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding Summary.RealizedPnl, StringFormat={}{0:N2} €}"
+                                       Foreground="{Binding Summary.RealizedPnl, Converter={StaticResource AmountToBrush}}" />
+                            <TextBlock Text="Plus/minus realizzata" Style="{StaticResource Muted}" />
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Nuova operazione" Style="{StaticResource H2}" />
+                        <ComboBox ItemsSource="{Binding OperationTypes}" SelectedItem="{Binding OperationType}" />
+                        <TextBox Text="{Binding Ticker, UpdateSourceTrigger=PropertyChanged}" ToolTip="Ticker" />
+                        <TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" ToolTip="Quantità" />
+                        <TextBox Text="{Binding PricePerShare, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Prezzo per azione" />
+                        <TextBox Text="{Binding DividendAmount, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Importo dividendo"
+                                 Visibility="{Binding IsDividend, Converter={StaticResource BoolToVisibility}}" />
+                        <TextBox Text="{Binding Fees, UpdateSourceTrigger=PropertyChanged}" ToolTip="Commissioni" />
+                        <TextBox Text="{Binding Currency, UpdateSourceTrigger=PropertyChanged}" ToolTip="Valuta" />
+                        <DatePicker SelectedDate="{Binding OperationDate}" />
+                        <Button Content="Registra operazione" Command="{Binding AddOperationCommand}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Prezzo manuale" Style="{StaticResource H2}" />
+                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Text="Serve solo se non hai configurato una API key per i prezzi di mercato: il job schedulato altrimenti li aggiorna da solo." />
+                        <TextBox Text="{Binding PriceTicker, UpdateSourceTrigger=PropertyChanged}" ToolTip="Ticker" />
+                        <TextBox Text="{Binding PriceValue, UpdateSourceTrigger=PropertyChanged}" ToolTip="Prezzo" />
+                        <Button Content="Aggiorna prezzo" Command="{Binding SetPriceCommand}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="3" Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource Card}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Posizioni" Style="{StaticResource H2}" />
+                    <DataGrid ItemsSource="{Binding Holdings}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Ticker" Width="90" Binding="{Binding Ticker}" />
+                            <DataGridTextColumn Header="Quantità" Width="100"
+                                                Binding="{Binding Quantity, StringFormat={}{0:N4}}" />
+                            <DataGridTextColumn Header="Carico medio" Width="110"
+                                                Binding="{Binding AvgCostBasis, StringFormat={}{0:N4}}" />
+                            <DataGridTextColumn Header="Ultimo prezzo" Width="110"
+                                                Binding="{Binding LastPrice, StringFormat={}{0:N4}}" />
+                            <DataGridTextColumn Header="Valore" Width="110"
+                                                Binding="{Binding MarketValue, StringFormat={}{0:N2} €}" />
+                            <DataGridTemplateColumn Header="P/L" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding UnrealizedPnl, StringFormat={}{0:N2} €}"
+                                                   Foreground="{Binding UnrealizedPnl, Converter={StaticResource AmountToBrush}}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource Card}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Operazioni" Style="{StaticResource H2}" />
+                    <DataGrid ItemsSource="{Binding Operations}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Data" Width="100"
+                                                Binding="{Binding Date, StringFormat={}{0:dd/MM/yyyy}}" />
+                            <DataGridTextColumn Header="Tipo" Width="90" Binding="{Binding Type}" />
+                            <DataGridTextColumn Header="Ticker" Width="90" Binding="{Binding Ticker}" />
+                            <DataGridTextColumn Header="Quantità" Width="100"
+                                                Binding="{Binding Quantity, StringFormat={}{0:N4}}" />
+                            <DataGridTextColumn Header="Prezzo" Width="100"
+                                                Binding="{Binding PricePerShare, StringFormat={}{0:N4}}" />
+                            <DataGridTextColumn Header="Effetto cassa" Width="120"
+                                                Binding="{Binding CashDelta, StringFormat={}{0:N2} €}" />
+                            <DataGridTextColumn Header="Realizzato" Width="*"
+                                                Binding="{Binding RealizedPnl, StringFormat={}{0:N2} €}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

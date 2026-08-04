@@ -1,4 +1,4 @@
-# Project Memory — Money App
+# Project Memory — Centesimo
 
 > Diario di bordo del progetto. **Leggere per intero a inizio sessione, aggiornare a fine
 > sessione.** Le righe della tabella Decisioni non si cancellano mai: servono proprio a
@@ -36,9 +36,13 @@ volta contro un Postgres vero; lo scheduler parte con i suoi 3 job; `/health` ri
 e 21 categorie; **tutti e 45 i test passano**, inclusi i 30 di integrazione mai eseguiti
 prima. Il client WPF compila in Release senza warning.
 
-**NON ancora verificato:** il giro completo dentro l'applicazione desktop (login dalla GUI,
-inserimento transazione, rientro automatico da refresh token dopo riavvio). L'API è provata,
-la UI che la consuma no.
+**Login dalla GUI: funziona.** Non l'ho osservato a schermo, ma il refresh token era
+presente nel Credential Manager, e ci finisce solo dopo un `LoginAsync` andato a buon fine.
+
+**NON ancora verificato:** il resto del giro nell'app desktop (inserimento di una
+transazione, rientro automatico dal refresh token dopo un riavvio). Dopo la rinomina il
+target nel Credential Manager è cambiato, quindi **il primo avvio di `Centesimo.exe`
+richiede di rifare il login**.
 
 ## Decisioni architetturali
 
@@ -77,6 +81,10 @@ la UI che la consuma no.
 | 2026-08-04 | SAN del certificato parametrizzato via `CERT_CN`/`CERT_EXTRA_SAN` nel `.env` | il certificato era valido solo per `localhost`: fuori dal PC di sviluppo ogni strumento che verifica il nome (browser, curl, futuro client Android) lo rifiuterebbe | lasciare il SAN fisso e affidarsi solo al pinning del client WPF |
 | 2026-08-04 | Docker installato dal repo ufficiale Docker, non dal pacchetto `docker.io` di Ubuntu | `docker.io` è più vecchio e non porta il plugin `compose` v2 richiesto dal `docker-compose.yml` | `apt install docker.io` + docker-compose v1 |
 | 2026-08-04 | `pythonpath = .` in `pytest.ini` | senza, `docker compose exec api pytest` (il comando documentato) non trova il package `app`: pytest mette in `sys.path` la cartella dei test, non la root | documentare `python -m pytest` al posto di `pytest` |
+| 2026-08-04 | App rinominata «Centesimo»: rinominati anche namespace, solution, assembly, `%APPDATA%` e target del Credential Manager, non solo i testi | un nome a metà (UI "Centesimo", codice `MoneyApp`) è la peggiore delle due opzioni: confonde senza far risparmiare | rinominare solo i testi visibili |
+| 2026-08-04 | Campo «Server» del login reso modificabile, con salvataggio **solo dopo un login riuscito** | l'indirizzo cambia fra LAN e Tailscale (§1.4) e costringere a editare `settings.json` a mano è un attrito inutile; salvare prima della verifica permetterebbe a un indirizzo sbagliato di sostituire quello funzionante | campo di sola lettura (era così), oppure salvataggio immediato alla digitazione |
+| 2026-08-04 | Rimosso il `settings.Save()` all'avvio; `Load()` espone `LastLoadError` mostrato nel login | con un `settings.json` illeggibile la coppia Load-ripiega-sui-default + Save sovrascriveva la configurazione buona con `localhost`, cancellando ogni traccia del problema: il sintomo era "punta a localhost e non si collega" | continuare a salvare all'avvio |
+| 2026-08-04 | Database `money` e ruolo `money_app` **non** rinominati | sono identificatori dell'infrastruttura, non il nome dell'app; rinominarli impone di ricreare database e ruolo su Postgres senza alcun guadagno | rinominare anche quelli per coerenza |
 | 2026-08-04 | Loop scope dei test forzato a `session` con `pytestmark` in `test_api.py` | l'engine async è di scope sessione e le connessioni asyncpg restano legate al loop che le ha aperte; in pytest-asyncio 0.25 lo scope del loop dei **test** si imposta solo dal marker (l'opzione ini copre le sole fixture) | rendere l'engine di scope funzione (ricreerebbe lo schema ad ogni test) |
 
 ## Schema dati
@@ -127,7 +135,62 @@ ammortamento per i mutui, drag&drop dei widget, caching locale sul client.
 
 ## Changelog
 
-### 2026-08-04
+### 2026-08-04 (3) — configurazione del server dal client
+
+- **Corretto un difetto che distruggeva la configurazione.** `App.OnStartup` faceva
+  `AppSettings.Load()` seguito da `Save()`: se `settings.json` non era leggibile, `Load()`
+  ripiegava in silenzio sui valori predefiniti e `Save()` li riscriveva sopra il file,
+  cancellando l'indirizzo buono. Sintomo osservato: la finestra di login mostrava
+  `https://localhost:8443` senza motivo apparente. Ora il salvataggio avviene solo dopo un
+  login riuscito, e `AppSettings.LastLoadError` viene mostrato in rosso nel login.
+- **Campo «Server» reso modificabile** (era `IsReadOnly` con binding `OneWay`, quindi
+  puramente decorativo). L'URL viene validato, applicato ricostruendo l'`ApiClient` — la
+  `BaseAddress` è fissata nel costruttore — e salvato solo dopo un login riuscito.
+- **Gli errori del login erano illeggibili**, e questo ha nascosto un problema per un giro
+  intero: la finestra aveva `Height` fisso e `ResizeMode="NoResize"`, quindi un messaggio
+  lungo veniva tagliato dal bordo; e si mostrava solo `HttpRequestException.Message`
+  ("The SSL connection could not be established"), che è generico — la ragione vera sta
+  nelle eccezioni annidate. Ora la finestra è `SizeToContent="Height"` e ridimensionabile,
+  e il messaggio include tutta la catena delle cause più l'indirizzo tentato.
+- **Causa dell'errore TLS: il certificato non era dove il client lo cercava.** Il messaggio
+  «Nessun certificato pinnato» ha rivelato `ServerCertificatePath = null`, quindi il
+  callback rifiutava qualunque certificato (il ping funzionava: il problema era a livello
+  TLS, non IP). Il certificato ora sta in `server/certs/server.crt` nel repository, che è
+  il primo posto in cui `GuessCertificatePath()` guarda. Inoltre `Load()` non si fida più
+  di un percorso valorizzato ma inesistente: ricade sulla ricerca automatica invece di
+  restare senza pinning, e la finestra di login mostra il percorso risolto.
+- **Un errore TLS osservato una volta alle 01:50 non è stato riprodotto.** Verificato dopo:
+  l'impronta SHA-256 del certificato presentato coincide con quella del file pinnato, e il
+  **codice di produzione** (`AppSettings.Load` + `ApiClient.LoginAsync`, esercitato da un
+  harness che referenzia l'assembly vero) autentica correttamente. Nei log del server non
+  compare alcun tentativo in quell'istante. Se ricapita, ora il messaggio dirà la causa.
+- **Tailscale non è utilizzabile dal client oggi:** sul PC Windows Tailscale non è
+  installato (nessun eseguibile, nessun servizio, nessun indirizzo `100.x`). L'IP
+  `100.89.5.18` è del solo server. Config attiva quindi su `https://192.168.1.104:8443`;
+  una volta installato Tailscale qui basta cambiare il campo Server, il certificato ha già
+  quell'IP nel SAN.
+
+### 2026-08-04 (2) — rinomina in «Centesimo»
+
+- L'app si chiama **Centesimo**. Rinominati sia i testi visibili sia gli identificatori:
+  namespace `MoneyApp.Desktop` → `Centesimo.Desktop`, `MoneyApp.sln` → `Centesimo.sln`,
+  cartella del progetto, `AssemblyName` (l'eseguibile ora è `Centesimo.exe`), classe
+  `MoneyApi` → `CentesimoApi`, `docs/ARCHITETTURA_MONEY_APP.md` →
+  `docs/ARCHITETTURA_CENTESIMO.md` con tutti i link aggiornati. 50 file toccati.
+- Cambiati anche due punti che hanno effetti collaterali: `%APPDATA%\MoneyApp` →
+  `%APPDATA%\Centesimo` (config e certificato migrati, vecchia cartella rimossa) e il
+  target nel Credential Manager `MoneyApp:refresh_token` → `Centesimo:refresh_token`
+  (la vecchia voce, orfana, è stata cancellata: **serve rifare il login una volta**).
+- **Non** rinominati, di proposito: il database `money` e il ruolo `money_app`. Sono
+  identificatori dell'infrastruttura, non il nome dell'app, e cambiarli richiede di
+  ricreare database e ruolo su Postgres — rischio senza guadagno.
+- Il certificato già emesso conserva `O=Money App` nel subject: `entrypoint.sh` ora
+  genera `O=Centesimo`, ma il certificato non si rigenera finché `server/certs/` esiste
+  (e rigenerarlo romperebbe il pinning). Si allineerà alla prossima rigenerazione.
+- Verificato dopo la rinomina: il client compila in Release senza warning come
+  `Centesimo.exe`, l'OpenAPI espone `"Centesimo API"`, i 45 test passano ancora.
+
+### 2026-08-04 (1) — primo deploy
 
 - **Primo deploy reale.** Backend su `192.168.1.104` (Ubuntu 24.04, utente `office`,
   `/home/office/Budgeting`): installato Docker Engine 29.7.1 + Compose v5.4.0 dal repo
@@ -168,4 +231,4 @@ ammortamento per i mutui, drag&drop dei widget, caching locale sul client.
 - Fase 11: CRUD dei widget e Home a griglia fissa nel client.
 - Fase 12: portafoglio investimenti con media ponderata di carico, plusvalenze realizzate,
   cache prezzi/cambi e provider esterno opzionale.
-- Documentazione: `README.md`, `docs/API.md`, `docs/ARCHITETTURA_MONEY_APP.md`, questo file.
+- Documentazione: `README.md`, `docs/API.md`, `docs/ARCHITETTURA_CENTESIMO.md`, questo file.

@@ -1,4 +1,4 @@
-# Deploy — Money App
+# Deploy — Centesimo
 
 Come è fatto il deploy del backend e come rifarlo/aggiornarlo. Il documento descrive la
 situazione reale, non un ideale: se cambi qualcosa sul server, cambia anche questo file.
@@ -113,9 +113,9 @@ sessione SSH** perché il nuovo gruppo venga applicato.
 Da Windows, nella root del progetto (Git Bash o WSL):
 
 ```bash
-tar --exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' --exclude='certs' -czf /tmp/money-server.tar.gz server docker-compose.yml .env.example
-scp /tmp/money-server.tar.gz office@192.168.1.104:~/Budgeting/
-ssh office@192.168.1.104 "cd ~/Budgeting && tar -xzf money-server.tar.gz && rm money-server.tar.gz"
+tar --exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' --exclude='certs' -czf /tmp/centesimo-server.tar.gz server docker-compose.yml .env.example
+scp /tmp/centesimo-server.tar.gz office@192.168.1.104:~/Budgeting/
+ssh office@192.168.1.104 "cd ~/Budgeting && tar -xzf centesimo-server.tar.gz && rm centesimo-server.tar.gz"
 ```
 
 `client/` è escluso di proposito: sul server non serve.
@@ -163,9 +163,9 @@ nulla e non cambia la password di un utente esistente.
 Da Windows:
 
 ```bash
-tar --exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' --exclude='certs' -czf /tmp/money-server.tar.gz server docker-compose.yml
-scp /tmp/money-server.tar.gz office@192.168.1.104:~/Budgeting/
-ssh office@192.168.1.104 "cd ~/Budgeting && tar -xzf money-server.tar.gz && rm money-server.tar.gz && docker compose up -d --build"
+tar --exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' --exclude='certs' -czf /tmp/centesimo-server.tar.gz server docker-compose.yml
+scp /tmp/centesimo-server.tar.gz office@192.168.1.104:~/Budgeting/
+ssh office@192.168.1.104 "cd ~/Budgeting && tar -xzf centesimo-server.tar.gz && rm centesimo-server.tar.gz && docker compose up -d --build"
 ```
 
 Il `Dockerfile` fa `COPY . .`: l'immagine va **ricostruita**, non basta riavviare il
@@ -177,9 +177,20 @@ container. Le migrazioni nuove vengono applicate dall'entrypoint all'avvio.
 
 ### 5.2 Riportare il certificato sul client Windows
 
+Il client cerca il certificato in due posti, in quest'ordine:
+
+1. `<repo>\server\certs\server.crt`, risalendo dalla cartella dell'eseguibile — **è il
+   posto consigliato**: sta nel repository (già in `.gitignore`), si aggiorna con un solo
+   `scp` e non dipende dal profilo utente;
+2. `%APPDATA%\Centesimo\server.crt`.
+
 ```bash
-scp office@192.168.1.104:~/Budgeting/server/certs/server.crt "$APPDATA/MoneyApp/server.crt"
+scp office@192.168.1.104:~/Budgeting/server/certs/server.crt \
+    "/c/Users/<utente>/Documents/Projects/Budgeting/server/certs/server.crt"
 ```
+
+Se il percorso in `settings.json` punta a un file che non esiste più, l'app ricade
+automaticamente sulla ricerca qui sopra invece di restare senza pinning.
 
 ---
 
@@ -235,21 +246,31 @@ Non c'è ancora niente di schedulato: per ora è un comando da lanciare a mano.
 
 ## 8. Client Windows
 
-Configurazione in `%APPDATA%\MoneyApp\settings.json` (creato a mano o dall'app):
+Configurazione in `%APPDATA%\Centesimo\settings.json` (creato a mano o dall'app):
 
 ```json
 {
   "ApiBaseUrl": "https://192.168.1.104:8443",
-  "ServerCertificatePath": "C:\\Users\\sabri\\AppData\\Roaming\\MoneyApp\\server.crt"
+  "ServerCertificatePath": "C:\\Users\\sabri\\AppData\\Roaming\\Centesimo\\server.crt"
 }
 ```
 
 Il refresh token **non** sta qui: è nel Windows Credential Manager (§1.1).
 
+L'indirizzo si può cambiare anche **dal campo «Server» nella finestra di login**, senza
+toccare il file: viene salvato in `settings.json` solo dopo un login riuscito, così un
+indirizzo sbagliato non sostituisce quello che funzionava. È il modo previsto per passare
+fra LAN e Tailscale.
+
+> Se `settings.json` è illeggibile (tipico: percorso Windows con backslash singoli, che in
+> JSON sono sequenze di escape non valide), l'app riparte dai valori predefiniti —
+> `https://localhost:8443` e nessun certificato — e lo **dichiara** con un avviso rosso
+> nella finestra di login. Nei percorsi vanno raddoppiati: `C:\\Users\\...`.
+
 Build ed avvio:
 
 ```bash
-dotnet build client/MoneyApp.sln -c Release
+dotnet build client/Centesimo.sln -c Release
 ```
 
-L'eseguibile è `client/MoneyApp.Desktop/bin/Release/net10.0-windows/MoneyApp.exe`.
+L'eseguibile è `client/Centesimo.Desktop/bin/Release/net10.0-windows/Centesimo.exe`.
