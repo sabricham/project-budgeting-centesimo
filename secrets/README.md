@@ -1,27 +1,15 @@
-# secrets/
+# Segreti
 
-Contiene i segreti montati dai container come Docker secrets. **Nessuno di questi file
-finisce nel repository** (vedi `.gitignore`): qui sono versionati solo i `.example`.
+I file `*.txt` di questa cartella sono **fuori dal repository** (vedi `.gitignore`) e
+vanno generati sulla macchina che esegue lo stack. Non si copiano da un'altra macchina:
+un segreto che viaggia è un segreto in più da custodire.
 
-Genera i file reali prima del primo `docker compose up` (da PowerShell, nella root del repo):
-
-```powershell
-# password del database
-[Convert]::ToBase64String((1..24 | ForEach-Object { Get-Random -Max 256 })) | Out-File -Encoding ascii -NoNewline secrets/db_password.txt
-
-# segreto di firma dei JWT (§1.1)
-[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Max 256 })) | Out-File -Encoding ascii -NoNewline secrets/jwt_secret.txt
-
-# chiave API prezzi di mercato (§2.8) — lascia vuoto se non ne hai una:
-# il portafoglio funziona lo stesso con i prezzi inseriti a mano
-"" | Out-File -Encoding ascii -NoNewline secrets/market_data_api_key.txt
+```bash
+openssl rand -base64 32 > secrets/db_password.txt
+openssl rand -base64 48 > secrets/jwt_secret.txt
+chmod 600 secrets/*.txt
 ```
 
-Note:
-- i file devono essere **senza BOM e senza newline finale** (`-Encoding ascii -NoNewline`);
-  l'API fa comunque `strip()` del contenuto letto;
-- cambiare `jwt_secret.txt` invalida tutti gli access token emessi — è il modo più rapido
-  per fare un "logout globale";
-- cambiare `db_password.txt` dopo la prima inizializzazione **non** cambia la password
-  dell'utente Postgres già creato nel volume `pgdata`: va cambiata anche nel DB (o si
-  ricrea il volume).
+Rigenerare `jwt_secret.txt` invalida tutte le sessioni aperte: si rifà il login e basta.
+Rigenerare `db_password.txt` dopo il primo avvio **non** cambia la password dentro
+Postgres, che è già stata impostata nel volume: andrebbe cambiata anche lì con `ALTER ROLE`.

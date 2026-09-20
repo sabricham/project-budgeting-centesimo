@@ -1,0 +1,61 @@
+.scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  padding: 11px var(--sp-3);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+.table tbody tr:hover { background: var(--surface-2); }
+.table tbody tr:last-child td { border-bottom: none; }
+
+.sortable {
+  /* pulsante che deve sembrare l'intestazione, non un pulsante */
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.sortable:hover { color: var(--text); }
+.sortable:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+.arrow { margin-left: 6px; opacity: 0.25; }
+.arrowOn { margin-left: 6px; color: var(--accent); }
+
+.right { text-align: right; }
+.center { text-align: center; }
+
+@media (max-width: 720px) {
+  .secondary { display: none; }
+}

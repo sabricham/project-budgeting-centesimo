@@ -1,0 +1,95 @@
+{
+  "Cibo e bevande": [
+    "Alimenti",
+    "Ristorante e fast-food",
+    "Bar e caffè"
+  ],
+  "Acquisti": [
+    "Abbigliamento e scarpe",
+    "Gioielli e accessori",
+    "Salute e bellezza",
+    "Bambini",
+    "Casa e giardino",
+    "Animali domestici",
+    "Elettronica e accessori",
+    "Regali",
+    "Cancelleria e attrezzi",
+    "Tempo libero",
+    "Drogheria e farmacia"
+  ],
+  "Alloggio": [
+    "Affitto",
+    "Mutuo",
+    "Energia e utenze",
+    "Servizi",
+    "Manutenzione e riparazioni",
+    "Assicurazione sulla proprietà"
+  ],
+  "Trasporti": [
+    "Trasporto pubblico",
+    "Taxi",
+    "Viaggi",
+    "Viaggi di lavoro"
+  ],
+  "Veicolo": [
+    "Carburante",
+    "Parcheggio",
+    "Manutenzione veicoli",
+    "Noleggi",
+    "Assicurazione veicolo",
+    "Leasing"
+  ],
+  "Vita e intrattenimento": [
+    "Assistenza sanitaria e medico",
+    "Wellness e bellezza",
+    "Sport e fitness",
+    "Cultura ed eventi sportivi",
+    "Eventi della vita",
+    "Hobby",
+    "Formazione e sviluppo personale",
+    "Libri, audio e abbonamenti",
+    "TV e streaming",
+    "Vacanze, viaggi e hotel",
+    "Beneficienza e regali",
+    "Alcol e tabacco",
+    "Lotteria e gioco d'azzardo"
+  ],
+  "Comunicazione e PC": [
+    "Telefono e cellulare",
+    "Internet",
+    "Software, app e giochi",
+    "Servizi postali"
+  ],
+  "Spese finanziarie": [
+    "Tasse",
+    "Assicurazioni",
+    "Prestiti e interessi",
+    "Multe",
+    "Consulenza",
+    "Spese e commissioni",
+    "Assegno di mantenimento"
+  ],
+  "Investimenti": [
+    "Immobili",
+    "Veicoli e beni mobili",
+    "Investimenti finanziari",
+    "Risparmi",
+    "Collezioni"
+  ],
+  "Entrata": [
+    "Salario e fatture",
+    "Interessi e dividendi",
+    "Vendita",
+    "Entrate da affitto",
+    "Quote e sovvenzioni",
+    "Entrata da prestiti",
+    "Assegni, buoni e ticket",
+    "Lotteria e gioco d'azzardo",
+    "Rimborsi",
+    "Assegno di mantenimento",
+    "Regali"
+  ],
+  "Altri": [
+    "Mancante"
+  ]
+}

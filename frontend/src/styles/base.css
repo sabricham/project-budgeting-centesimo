@@ -1,0 +1,127 @@
+@import './tokens.css';
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+h1 { font-size: 22px; }
+h2 { font-size: 17px; }
+h3 { font-size: 14px; color: var(--text-muted); font-weight: 500; }
+
+/* --- primitive condivise ------------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-5);
+  box-shadow: var(--shadow);
+}
+
+.num { font-variant-numeric: tabular-nums; }
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.field > label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 120ms, background 120ms;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  background: var(--surface-3);
+}
+
+input::placeholder { color: var(--text-faint); }
+input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+select { cursor: pointer; }
+/* Le opzioni sono disegnate dal sistema, non dal CSS della pagina: senza questo
+   su alcuni browser restano bianche su bianco quando il tema è scuro. */
+option { background: var(--surface-2); color: var(--text); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+
+.btn:hover:not(:disabled) { background: var(--surface-3); border-color: var(--border-strong); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06121f;
+  font-weight: 600;
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
+
+.btn-icon { padding: 8px 10px; }
+
+.error-box {
+  padding: var(--sp-3) var(--sp-4);
+  color: #ffd7d5;
+  background: rgba(244, 101, 95, 0.12);
+  border: 1px solid rgba(244, 101, 95, 0.35);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.ok-box {
+  padding: var(--sp-3) var(--sp-4);
+  color: #b7f0c0;
+  background: rgba(63, 185, 80, 0.12);
+  border: 1px solid rgba(63, 185, 80, 0.35);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.muted { color: var(--text-muted); }
+.empty { padding: var(--sp-7) var(--sp-4); text-align: center; color: var(--text-faint); }
+
+/* Le barre di scorrimento di sistema stonano col tema scuro. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+::-webkit-scrollbar-track { background: transparent; }

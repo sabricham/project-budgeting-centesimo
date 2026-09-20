@@ -1,73 +1,85 @@
-# Centesimo — stack locale (§3.3 dell'architettura).
+# Centesimo — stack completo.
 #
-#   db  : PostgreSQL 16, raggiungibile SOLO dalla rete `internal` (nessuna porta pubblicata).
-#   api : FastAPI su HTTPS 8443, unico servizio esposto verso l'host.
+#   db   PostgreSQL, raggiungibile solo dalla rete interna: nessuna porta pubblicata.
+#   api  FastAPI in HTTP sulla porta 8000, raggiungibile solo da `web`.
+#   web  nginx: serve il sito e inoltra /api all'API. È l'unico servizio esposto.
 #
-# I segreti sono file montati in /run/secrets (docker secrets in modalità compose),
-# mai variabili d'ambiente in chiaro nel compose.
+# Il TLS non è qui dentro. Davanti a `web` ci sta Tailscale, che termina HTTPS con un
+# certificato Let's Encrypt vero — niente più certificati self-signed da far accettare
+# a mano. Vedi docs/DEPLOY.md.
+#
+# I segreti sono file montati in /run/secrets, mai valori in chiaro in questo file.
 
 services:
   db:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-money}
-      POSTGRES_USER: ${POSTGRES_USER:-money_app}
+      POSTGRES_DB: ${POSTGRES_DB:-centesimo}
+      POSTGRES_USER: ${POSTGRES_USER:-centesimo}
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks: [internal]
     secrets: [db_password]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-money_app} -d ${POSTGRES_DB:-money}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-centesimo} -d ${POSTGRES_DB:-centesimo}"]
       interval: 5s
       timeout: 5s
       retries: 20
 
   api:
-    build: ./server
+    build: ./backend
     restart: unless-stopped
     environment:
       DB_HOST: db
       DB_PORT: "5432"
-      DB_NAME: ${POSTGRES_DB:-money}
-      DB_USER: ${POSTGRES_USER:-money_app}
+      DB_NAME: ${POSTGRES_DB:-centesimo}
+      DB_USER: ${POSTGRES_USER:-centesimo}
       DB_PASSWORD_FILE: /run/secrets/db_password
       JWT_SECRET_FILE: /run/secrets/jwt_secret
-      MARKET_DATA_API_KEY_FILE: /run/secrets/market_data_api_key
-      MARKET_DATA_PROVIDER: ${MARKET_DATA_PROVIDER:-twelvedata}
       BASE_CURRENCY: ${BASE_CURRENCY:-EUR}
       TZ: ${TZ:-Europe/Rome}
-      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-30}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-60}
       REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-30}
-      RUN_SCHEDULER: ${RUN_SCHEDULER:-true}
+      LOGIN_MAX_ATTEMPTS: ${LOGIN_MAX_ATTEMPTS:-8}
+      LOGIN_WINDOW_SECONDS: ${LOGIN_WINDOW_SECONDS:-300}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      # Nomi aggiuntivi nel certificato self-signed: servono quando l'API non è
-      # su localhost ma su una macchina raggiunta per IP/hostname (vedi docs/DEPLOY.md).
-      CERT_CN: ${CERT_CN:-localhost}
-      CERT_EXTRA_SAN: ${CERT_EXTRA_SAN:-}
-    ports:
-      - "8443:8443"
-    volumes:
-      # Il certificato self-signed vive qui: serve anche al client Windows,
-      # che lo "pinna" invece di disabilitare la verifica TLS (§1.1).
-      - ./server/certs:/app/certs
     depends_on:
       db:
         condition: service_healthy
-    networks: [internal, external]
-    secrets: [db_password, jwt_secret, market_data_api_key]
+    networks: [internal]
+    secrets: [db_password, jwt_secret]
     healthcheck:
-      test: ["CMD", "python", "-c", "import ssl,urllib.request;ctx=ssl._create_unverified_context();urllib.request.urlopen('https://localhost:8443/health',context=ctx)"]
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 40s
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      # Solo questa porta esce dallo stack. Tailscale la pubblica su internet
+      # (`tailscale funnel`), e resta comunque raggiungibile dalla rete di casa.
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [internal]
+    healthcheck:
+      # 127.0.0.1 e non `localhost`: dentro il container localhost risolve prima
+      # su ::1, mentre nginx ascolta solo in IPv4 — il controllo fallirebbe con un
+      # sito perfettamente funzionante. Passando da /health verifica anche l'API.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
   internal:
-    internal: true   # nessun accesso a internet/host: solo db <-> api
-  external:
 
 volumes:
   pgdata:
@@ -77,5 +89,3 @@ secrets:
     file: ./secrets/db_password.txt
   jwt_secret:
     file: ./secrets/jwt_secret.txt
-  market_data_api_key:
-    file: ./secrets/market_data_api_key.txt

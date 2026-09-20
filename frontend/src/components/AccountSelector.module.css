@@ -1,0 +1,21 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.wrap select { width: auto; min-width: 180px; }
+
+/* Dentro una form il selettore deve avere la stessa larghezza degli altri campi. */
+.block { display: block; min-width: 0; }
+.block select { width: 100%; }

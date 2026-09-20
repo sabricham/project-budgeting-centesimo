@@ -1,0 +1,51 @@
+/*
+ * Token di design: l'unico posto in cui stanno colori, spaziature e raggi.
+ * I componenti non scrivono mai un colore letterale — si rifà il tema cambiando
+ * soltanto questo file.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* superfici, dal fondo verso l'alto */
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #1c2330;
+  --surface-3: #232b3a;
+  --border: #2a3441;
+  --border-strong: #3a4757;
+
+  /* testo */
+  --text: #e6edf3;
+  --text-muted: #9aa7b4;
+  --text-faint: #6b7785;
+
+  /* accento e semantica dei movimenti */
+  --accent: #4b9fff;
+  --accent-soft: rgba(75, 159, 255, 0.14);
+  --income: #3fb950;
+  --expense: #f4655f;
+  --investment: #c08cff;
+  --warn: #d29922;
+
+  /* spaziature */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 16px;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.2);
+
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  /* I numeri vanno in tabulare: senza, le colonne di importi ballano riga per riga. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  --maxw: 1180px;
+}

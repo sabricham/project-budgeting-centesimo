@@ -1,276 +1,159 @@
-# Deploy — Centesimo
+# Deploy e accesso remoto
 
-Come è fatto il deploy del backend e come rifarlo/aggiornarlo. Il documento descrive la
-situazione reale, non un ideale: se cambi qualcosa sul server, cambia anche questo file.
+Lo stack gira su questa stessa macchina: nodo Tailscale **`office`**, `100.89.5.18`,
+MagicDNS `office.tailfc4c52.ts.net`. Non c'è un PC di sviluppo separato.
 
----
-
-## 1. Topologia
-
-```
-   ┌──────────────────────────────┐            ┌───────────────────────────────────┐
-   │  PC Windows (sviluppo)       │            │  192.168.1.104  "office"          │
-   │  C:\...\Projects\Budgeting   │            │  Ubuntu 24.04 · utente `office`   │
-   │                              │            │                                   │
-   │  server/   ← SORGENTI        │  deploy    │  /home/office/Budgeting           │
-   │  client/   ← app WPF ────────┼───────────▶│    server/            (copia)     │
-   │  docs/                       │   scp      │    docker-compose.yml             │
-   │                              │            │    .env      (solo qui)           │
-   │  app desktop ────────────────┼───HTTPS───▶│    secrets/  (solo qui)           │
-   └──────────────────────────────┘   :8443    │                                   │
-                                               │  docker compose:                  │
-                                               │    api  → 0.0.0.0:8443 (pubblica) │
-                                               │    db   → rete `internal`, chiusa │
-                                               └───────────────────────────────────┘
-```
-
-**La macchina Windows resta la fonte di verità dei sorgenti.** Sul server c'è una copia
-di `server/` che viene sovrascritta ad ogni deploy: non modificare i file direttamente
-là, andrebbero persi al deploy successivo.
-
-Il `client/` non viene mai copiato sul server: gira solo su Windows.
-
-| | |
-|---|---|
-| Host | `192.168.1.104` (anche Tailscale `100.89.5.18`, hostname `office`) |
-| SO | Ubuntu 24.04.4 LTS |
-| Utente | `office` (nel gruppo `sudo` e `docker`) |
-| Cartella | `/home/office/Budgeting` |
-| Docker | Engine 29.7.1, Compose v5.4.0, dal repo ufficiale Docker |
-| API | `https://192.168.1.104:8443` — Swagger su `/docs` |
-
----
-
-## 2. Cosa vive solo sul server e non è nel repository
-
-Tre cose non vengono mai copiate da Windows, e questo è voluto:
-
-| File | Perché sta solo là |
-|---|---|
-| `secrets/db_password.txt` | generato sul server con `openssl rand -hex 16`. Un segreto che viaggia è un segreto in più da custodire |
-| `secrets/jwt_secret.txt` | idem, `openssl rand -hex 32`. Cambiarlo invalida tutti i token emessi |
-| `secrets/market_data_api_key.txt` | **vuoto**: nessuna API key registrata. Con il file vuoto il provider diventa `NullProvider` e il portafoglio resta usabile inserendo i prezzi a mano |
-| `.env` | contiene la configurazione del deploy, incluso il SAN del certificato |
-| `server/certs/` | certificato self-signed generato al primo avvio. **Non va rigenerato**: il client ne pinna i byte |
-
-Sono tutti in `.gitignore`. Il modello è `.env.example`, che invece è versionato.
-
----
-
-## 3. Il certificato — il punto che rompe le cose se lo si ignora
-
-Il client Windows **pinna** il certificato (§1.1 dell'architettura): non disattiva la
-verifica TLS, confronta i byte del certificato presentato con quelli di una copia locale.
-Ne discendono due conseguenze pratiche:
-
-1. **Il certificato deve elencare l'indirizzo con cui il server viene raggiunto.**
-   L'entrypoint lo genera per `localhost` più i nomi in `CERT_EXTRA_SAN`. Sul deploy
-   attuale il `.env` contiene:
-
-   ```
-   CERT_CN=192.168.1.104
-   CERT_EXTRA_SAN=IP:192.168.1.104,DNS:office,DNS:office.local,IP:100.89.5.18
-   ```
-
-2. **Se rigeneri il certificato devi ridistribuirlo al client**, altrimenti il pinning
-   fallisce e l'app non si collega più. L'entrypoint apposta non lo rigenera finché
-   `server/certs/server.crt` e `server.key` esistono: cambiare `CERT_EXTRA_SAN` a
-   posteriori non ha alcun effetto da solo.
-
-Per rigenerarlo davvero (es. hai aggiunto un indirizzo):
+## 1. Avvio da zero
 
 ```bash
-ssh office@192.168.1.104 "cd ~/Budgeting && docker compose down && rm -rf server/certs && docker compose up -d"
-```
-
-...e poi rifare il passo 5.2 (riscaricare il `.crt` sul client).
-
----
-
-## 4. Deploy da zero su una macchina nuova
-
-### 4.1 Docker
-
-Dal repo ufficiale Docker (non `docker.io` di Ubuntu, che è più vecchio e senza il
-plugin `compose`):
-
-```bash
-sudo apt-get update && sudo apt-get install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list
-sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo systemctl enable --now docker
-sudo usermod -aG docker "$USER"
-```
-
-L'ultima riga evita il `sudo` davanti ad ogni comando docker. **Serve riaprire la
-sessione SSH** perché il nuovo gruppo venga applicato.
-
-### 4.2 Sorgenti
-
-Da Windows, nella root del progetto (Git Bash o WSL):
-
-```bash
-tar --exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' --exclude='certs' -czf /tmp/centesimo-server.tar.gz server docker-compose.yml .env.example
-scp /tmp/centesimo-server.tar.gz office@192.168.1.104:~/Budgeting/
-ssh office@192.168.1.104 "cd ~/Budgeting && tar -xzf centesimo-server.tar.gz && rm centesimo-server.tar.gz"
-```
-
-`client/` è escluso di proposito: sul server non serve.
-
-### 4.3 Segreti e configurazione
-
-Sul server, una volta sola:
-
-```bash
-cd ~/Budgeting && mkdir -p secrets && chmod 700 secrets
-openssl rand -hex 16 | tr -d '\n' > secrets/db_password.txt
-openssl rand -hex 32 | tr -d '\n' > secrets/jwt_secret.txt
-: > secrets/market_data_api_key.txt
+cd /home/office/project-budgeting-centesimo
+cp .env.example .env
+openssl rand -base64 32 > secrets/db_password.txt
+openssl rand -base64 48 > secrets/jwt_secret.txt
 chmod 600 secrets/*.txt
-cp .env.example .env && chmod 600 .env
+docker compose up -d --build
+docker compose exec api python -m app.seed --username <nome> --password '<password lunga>'
 ```
 
-Poi in `.env` va messo l'indirizzo reale del server in `CERT_CN` / `CERT_EXTRA_SAN`
-(vedi §3) e `MARKET_DATA_PROVIDER=none` finché non c'è una API key.
+Il sito risponde su `http://<ip-del-server>:8080`. Le migrazioni si applicano da sole
+all'avvio e il catalogo delle categorie si allinea al JSON.
 
-### 4.4 Avvio
+## 2. Comandi operativi
 
 ```bash
-cd ~/Budgeting && docker compose up -d --build
+docker compose ps                    # stato dei tre servizi
+docker compose logs -f api           # log del backend
+docker compose restart api           # riavvio senza ricostruire
+docker compose up -d --build         # dopo una modifica al codice
+docker compose exec api alembic upgrade head
 ```
 
-L'entrypoint genera il certificato e applica le migrazioni Alembic da solo.
-
-### 4.5 Utente applicativo
-
-```bash
-docker compose exec api python -m app.seed --username sabri
-```
-
-Stampa una password generata **una volta sola**. Con `--password 'xxx'` la scegli tu,
-con `--demo` crea anche dei conti di esempio. È idempotente: rilanciarlo non duplica
-nulla e non cambia la password di un utente esistente.
-
----
-
-## 5. Aggiornare un deploy esistente
-
-### 5.1 Ho cambiato il codice del server
-
-Da Windows:
-
-```bash
-tar --exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' --exclude='certs' -czf /tmp/centesimo-server.tar.gz server docker-compose.yml
-scp /tmp/centesimo-server.tar.gz office@192.168.1.104:~/Budgeting/
-ssh office@192.168.1.104 "cd ~/Budgeting && tar -xzf centesimo-server.tar.gz && rm centesimo-server.tar.gz && docker compose up -d --build"
-```
-
-Il `Dockerfile` fa `COPY . .`: l'immagine va **ricostruita**, non basta riavviare il
-container. Le migrazioni nuove vengono applicate dall'entrypoint all'avvio.
-
-> Attenzione a `scp` con più file verso una cartella: finiscono tutti allo stesso
-> livello, ignorando la sottocartella di origine. Per file singoli dentro `server/tests/`
-> indica il percorso completo di destinazione.
-
-### 5.2 Riportare il certificato sul client Windows
-
-Il client cerca il certificato in due posti, in quest'ordine:
-
-1. `<repo>\server\certs\server.crt`, risalendo dalla cartella dell'eseguibile — **è il
-   posto consigliato**: sta nel repository (già in `.gitignore`), si aggiorna con un solo
-   `scp` e non dipende dal profilo utente;
-2. `%APPDATA%\Centesimo\server.crt`.
-
-```bash
-scp office@192.168.1.104:~/Budgeting/server/certs/server.crt \
-    "/c/Users/<utente>/Documents/Projects/Budgeting/server/certs/server.crt"
-```
-
-Se il percorso in `settings.json` punta a un file che non esiste più, l'app ricade
-automaticamente sulla ricerca qui sopra invece di restare senza pinning.
-
----
-
-## 6. Comandi operativi
-
-Tutti da eseguire in `~/Budgeting` sul server.
-
-| Cosa | Comando |
-|---|---|
-| Stato | `docker compose ps` |
-| Log dell'API | `docker compose logs -f api` |
-| Riavvio | `docker compose restart api` |
-| Stop | `docker compose down` (i dati restano nel volume `budgeting_pgdata`) |
-| Test | `docker compose exec api pytest -q` |
-| Shell nel container | `docker compose exec api bash` |
-| psql | `docker compose exec db psql -U money_app -d money` |
-| Health | `curl -sk https://192.168.1.104:8443/health` |
-
-I container hanno `restart: unless-stopped`: **ripartono da soli al riavvio del server**,
-non serve nulla in systemd.
+Documentazione interattiva dell'API: `http://<host>:8080/docs`.
 
 ### Backup
 
-Il dato vive tutto nel volume Docker `budgeting_pgdata`. Un dump logico:
-
 ```bash
-docker compose exec -T db pg_dump -U money_app money | gzip > ~/backup-money-$(date +%F).sql.gz
+docker compose exec -T db pg_dump -U centesimo centesimo | gzip > backup-$(date +%F).sql.gz
 ```
 
-Ripristino su un database vuoto:
-
-```bash
-gunzip -c backup-money-2026-08-04.sql.gz | docker compose exec -T db psql -U money_app -d money
-```
-
-Non c'è ancora niente di schedulato: per ora è un comando da lanciare a mano.
+Oggi è **da lanciare a mano**: non c'è niente di schedulato.
 
 ---
 
-## 7. Rete e sicurezza
+## 3. Accesso da internet — Tailscale Funnel
 
-- Il servizio `db` **non pubblica porte**: sta sulla rete Docker `internal` (che ha
-  `internal: true`, quindi nemmeno accesso a internet). Postgres non è raggiungibile
-  dalla LAN, solo dal container `api`.
-- L'unica porta esposta è `8443/tcp` dell'API.
-- Il certificato è self-signed: va bene finché il consumo è LAN + Tailscale con pinning
-  lato client. **Non esporre `8443` su internet con un port forward.** L'accesso da fuori
-  casa è previsto via Tailscale (l'IP `100.89.5.18` è già nel SAN del certificato), come
-  da §1.4 dell'architettura.
-- I segreti sono file montati in `/run/secrets`, mai variabili d'ambiente in chiaro.
+### Cosa serve prima
+
+Tre prerequisiti, tutti da sistemare **una sola volta** e tutti nel tuo account Tailscale.
+Verificato il 2026-09-20: **nessuno dei tre è ancora attivo.**
+
+1. **HTTPS nella tailnet.** Console di amministrazione → *DNS* → «Enable HTTPS».
+   Senza, Tailscale non può emettere il certificato. (Oggi `CertDomains` è vuoto.)
+
+2. **Permesso di Funnel sul nodo.** Console → *Access controls*, aggiungere alla policy:
+
+   ```json
+   "nodeAttrs": [
+     { "target": ["autogroup:member"], "attr": ["funnel"] }
+   ]
+   ```
+
+   (Oggi il nodo non ha la capability `funnel`.)
+
+3. **Un `tailscale funnel` lanciato da root**, perché nessun utente è impostato come
+   operator.
+
+### Accendere
+
+```bash
+sudo tailscale funnel --bg 8080
+```
+
+Da quel momento il sito risponde su `https://office.tailfc4c52.ts.net`, con certificato
+Let's Encrypt valido, da qualunque dispositivo al mondo.
+
+Per spegnere:
+
+```bash
+sudo tailscale funnel --https=443 off
+```
+
+Per controllare: `tailscale funnel status`.
+
+### Attenzione al conflitto sulla porta 443
+
+Su questa macchina **Pi-hole occupa già `0.0.0.0:443`** (gira in rete host). Se Funnel
+non riesce a prendere la 443, le uniche altre porte che ammette sono **8443 e 10000**:
+
+```bash
+sudo tailscale funnel --bg --https=8443 8080
+```
+
+L'indirizzo diventa `https://office.tailfc4c52.ts.net:8443` — più scomodo da digitare,
+identico in tutto il resto. La 8443 si è liberata spegnendo il vecchio stack.
+
+### Solo tailnet, senza esporre nulla
+
+Se un giorno l'accesso pubblico non servisse più, `serve` al posto di `funnel` dà lo
+stesso HTTPS con certificato valido ma **solo** ai dispositivi della tailnet:
+
+```bash
+sudo tailscale serve --bg 8080
+```
 
 ---
 
-## 8. Client Windows
+## 4. Limiti del Funnel — da conoscere
 
-Configurazione in `%APPDATA%\Centesimo\settings.json` (creato a mano o dall'app):
+Il Funnel risolve il problema «accedere da ovunque senza comprare un dominio», ma ha
+confini precisi.
 
-```json
-{
-  "ApiBaseUrl": "https://192.168.1.104:8443",
-  "ServerCertificatePath": "C:\\Users\\sabri\\AppData\\Roaming\\Centesimo\\server.crt"
-}
-```
+**È pubblico davvero, e l'indirizzo non è segreto.** Chiunque abbia l'URL arriva alla
+pagina di accesso. Peggio: il certificato Let's Encrypt viene registrato nei log pubblici
+di *Certificate Transparency*, quindi `office.tailfc4c52.ts.net` è **scopribile da
+chiunque**, senza che nessuno te lo debba dire. Non esiste nessuna sicurezza per
+oscurità: **la password è l'unica barriera**. Per questo il seed rifiuta password sotto i
+10 caratteri e il login è limitato a 8 tentativi ogni 5 minuti.
 
-Il refresh token **non** sta qui: è nel Windows Credential Manager (§1.1).
+**Solo tre porte, solo HTTPS.** Funnel accetta 443, 8443 e 10000 e nient'altro. Nessun
+traffico che non sia HTTPS o TCP terminato da Tailscale.
 
-L'indirizzo si può cambiare anche **dal campo «Server» nella finestra di login**, senza
-toccare il file: viene salvato in `settings.json` solo dopo un login riuscito, così un
-indirizzo sbagliato non sostituisce quello che funzionava. È il modo previsto per passare
-fra LAN e Tailscale.
+**Il traffico passa dall'infrastruttura di Tailscale.** Le connessioni da internet non
+arrivano dirette: transitano per i relay DERP. In pratica significa latenza più alta di
+una connessione diretta e una banda soggetta alle condizioni di uso corretto del servizio.
+Per un'app di budgeting usata da una persona è del tutto irrilevante; per trasferire file
+grossi no.
 
-> Se `settings.json` è illeggibile (tipico: percorso Windows con backslash singoli, che in
-> JSON sono sequenze di escape non valide), l'app riparte dai valori predefiniti —
-> `https://localhost:8443` e nessun certificato — e lo **dichiara** con un avviso rosso
-> nella finestra di login. Nei percorsi vanno raddoppiati: `C:\\Users\\...`.
+**Nessuna protezione applicativa davanti.** Niente WAF, niente mitigazione DDoS, nessun
+filtro per paese o indirizzo. Quello che arriva alla porta 8080 è quello che nginx riceve.
 
-Build ed avvio:
+**Dipende dal demone Tailscale.** Se `tailscaled` si ferma o il nodo perde la connessione
+al coordinatore, il sito sparisce da internet — pur continuando a funzionare in rete locale.
+
+**Il certificato è legato al nome della tailnet.** Se rinomini la tailnet, l'indirizzo
+cambia. Non è un dominio tuo e non è portabile altrove.
+
+**Come stringere la sicurezza, se in futuro servisse:** comprare un dominio e metterci
+davanti un reverse proxy con Let's Encrypt e filtro sugli indirizzi; oppure tenere
+`serve` invece di `funnel` e installare Tailscale su ogni dispositivo da cui accedi —
+è la modalità più sicura, al prezzo di non poter usare un PC qualsiasi.
+
+---
+
+## 5. Accesso dalla rete di casa
+
+Sempre disponibile e indipendente dal Funnel: `http://192.168.1.104:8080`
+(o l'indirizzo Tailscale `http://100.89.5.18:8080` da un dispositivo della tailnet).
+In HTTP, perché dentro la propria rete non c'è nulla da terminare.
+
+---
+
+## 6. Il vecchio stack
+
+La v1 girava da `/home/office/Budgeting` sulla porta 8443, con un database separato.
+È stata spenta. Il codice è archiviato in [`.old/`](../.old/README.md); la cartella
+`/home/office/Budgeting` con il suo volume Postgres può essere rimossa quando vuoi:
 
 ```bash
-dotnet build client/Centesimo.sln -c Release
+cd /home/office/Budgeting && docker compose down -v
 ```
-
-L'eseguibile è `client/Centesimo.Desktop/bin/Release/net10.0-windows/Centesimo.exe`.

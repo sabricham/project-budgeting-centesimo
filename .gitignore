@@ -1,7 +1,6 @@
-# Segreti e certificati: MAI nel repository
+# Segreti: MAI nel repository
 secrets/*.txt
 !secrets/*.txt.example
-server/certs/
 .env
 
 # Python
@@ -11,8 +10,11 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# .NET
-[Bb]in/
-[Oo]bj/
-*.user
-.vs/
+# Node
+node_modules/
+dist/
+.vite/
+
+# Editor / sistema
+.DS_Store
+*.swp

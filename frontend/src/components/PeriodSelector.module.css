@@ -1,0 +1,22 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.mode { width: auto; min-width: 160px; }
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.label {
+  min-width: 180px;
+  text-align: center;
+  font-weight: 600;
+  text-transform: capitalize;
+  font-variant-numeric: tabular-nums;
+}

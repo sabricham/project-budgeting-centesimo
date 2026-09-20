@@ -1,0 +1,16 @@
+.page {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-5);
+}
+
+.box {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.title { font-size: 26px; }
